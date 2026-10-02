@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Rbac;
 use Illuminate\Foundation\Auth\RegistersUsers;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
@@ -61,10 +62,19 @@ class RegisterController extends Controller
      */
     protected function create(array $data)
     {
-        return User::create([
+        $user = User::create([
             'name' => $data['name'],
             'email' => $data['email'],
             'password' => Hash::make($data['password']),
         ]);
+
+        // Without this a new account holds no permissions at all and lands on a
+        // dashboard it cannot fill. Viewer is the least privileged of the three
+        // roles, so this is the smallest grant that makes the account usable.
+        // The role comes from RolePermissionSeeder, so an install that has not
+        // been seeded fails loudly here rather than silently having no roles.
+        $user->assignRole(Rbac::VIEWER_ROLE);
+
+        return $user;
     }
 }

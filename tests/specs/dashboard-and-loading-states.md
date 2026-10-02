@@ -10,9 +10,10 @@ shimmer so the ajax surfaces stop flashing blank while they wait.
 
 The request assumed Manager and Viewer already had a dashboard. They do not, and
 neither does Admin. `/home` is a closure that redirects every role straight to
-`/addresses`. `HomeController` and `resources/views/home.blade.php` exist but
-nothing routes to them; the view is the stock "You are logged in!" placeholder.
-This is therefore new work for all three roles, not an extension.
+`/addresses`. `HomeController` and `resources/views/home.blade.php` existed but
+nothing routed to them; the view was the stock "You are logged in!" placeholder.
+This is therefore new work for all three roles, not an extension. Both of those
+dead files have since been deleted - see Follow-ups below.
 
 ## Scope
 
@@ -79,7 +80,7 @@ overlay at 800.
 - [x] Manager still cannot reach `/rbac`
 - [x] Export still honours the active search filter
 
-66 tests, 509 assertions, all passing.
+70 tests, 526 assertions, all passing.
 
 ## Tests updated by the behaviour change
 
@@ -95,22 +96,23 @@ deleted:
 
 These are the only two, and both move because the landing destination moved.
 
-## Known gaps left in place
+## Follow-ups, both now resolved
 
-**Registration grants no role.** `RegisterController::create()` makes a user
-with no role at all, so a newly registered account holds zero permissions. The
-landing page advertises "Create an account", so that path currently ends with an
-account that can see nothing. This predates the dashboard - previously `/home`
-redirected to `/addresses`, which also 403s a role-less user - but the dashboard
-now makes it visible instead of silent.
+**Registration granted no role.** `RegisterController::create()` made a user
+with no role at all, so a newly registered account held zero permissions while
+the landing page advertised "Create an account". Fixed: `create()` now assigns
+`Rbac::VIEWER_ROLE`, the least privileged of the three roles, which is the
+smallest grant that makes a new account usable. Covered by
+`tests/Feature/RegistrationTest.php` - the account is signed in, holds Viewer
+and only Viewer, reaches `/home` and `/addresses`, and still gets 403 on
+`addresses.create` and `/rbac`.
 
-The dashboard deliberately does not 403 in that case; it renders an explanation
-instead, which is why it is gated on `auth` rather than `addresses.view`.
-Assigning the Viewer role on registration would remove the gap, but that changes
-what a new account can reach, so it is left for an explicit decision.
+The dashboard's role-less state is kept rather than deleted: it is still the
+honest render for an account whose role was revoked, and it is why `/home` is
+gated on `auth` rather than `addresses.view`.
 
-**`HomeController` and `resources/views/home.blade.php` are now unused** as well
-as unrouted. Deleting files needs approval, so both are left in place.
+**`HomeController` and `resources/views/home.blade.php` were dead.** Both were
+unrouted and unreferenced, so both are deleted.
 
 ## Implementation layers
 
@@ -130,6 +132,7 @@ spec in this directory.
   and the DataTable never filters by `user_id`, so Viewer and Manager both see
   all 64 addresses across all 8 owners. Dashboard totals therefore expose
   nothing a Viewer cannot already page through.
-- **`HomeController` and `home.blade.php` are dead code.** Left in place because
-  deleting files needs explicit approval. Flagged for a follow-up decision.
+- **`HomeController` and `home.blade.php` were dead code**, and are now deleted.
+- **Registration grants Viewer.** A self-registered account is read-only, which
+  is the smallest grant that makes the landing page's sign-up path usable.
 - **No `AGENTS.md`**, so no council dispatch - see above.

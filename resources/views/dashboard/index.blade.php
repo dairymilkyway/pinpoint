@@ -38,8 +38,8 @@
     </div>
 
     @if (! $mayReadDirectory)
-        {{-- Registration grants no role, so this is the honest state for a brand
-             new account rather than a 403 on the landing page. --}}
+        {{-- Registration now grants Viewer, so this is only the honest state for
+             an account whose role was revoked - it renders instead of a 403. --}}
         <div class="panel">
             <div class="panel__body">
                 <p class="mb-2">You are signed in, but nothing has been shared with you yet.</p>

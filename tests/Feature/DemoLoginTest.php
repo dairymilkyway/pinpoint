@@ -85,7 +85,6 @@ class DemoLoginTest extends TestCase
         $this->post(route('login'), [
             'email' => self::EMAIL,
             'password' => self::PASSWORD,
-        // The auth redirect lands on /home, which forwards on to the directory.
         ])->assertRedirect(route('home'));
 
         $this->assertAuthenticated();
