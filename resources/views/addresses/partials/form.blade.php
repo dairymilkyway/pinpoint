@@ -203,6 +203,7 @@
                 }
 
                 city.disabled = false;
+                city.classList.add('is-busy');
                 city.append(option('Loading…', ''));
 
                 const query = new URLSearchParams({ region: regionCode });
@@ -214,11 +215,13 @@
                     if (!response.ok) throw new Error(response.status);
                     cities = await response.json();
                 } catch (error) {
+                    city.classList.remove('is-busy');
                     city.innerHTML = '';
                     city.append(option('Could not load cities', ''));
                     return;
                 }
 
+                city.classList.remove('is-busy');
                 city.innerHTML = '';
                 city.append(option('Choose a city or municipality…', ''));
 

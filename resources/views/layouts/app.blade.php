@@ -20,11 +20,19 @@
 
             <ul class="app-nav">
                 <li>
+                    <a class="app-nav__link {{ request()->routeIs('home') ? 'is-active' : '' }}"
+                       href="{{ route('home') }}">
+                        <i class="bi bi-grid-1x2"></i>
+                        <span>Dashboard</span>
+                        <span class="app-nav__index">01</span>
+                    </a>
+                </li>
+                <li>
                     <a class="app-nav__link {{ request()->routeIs('addresses.*') ? 'is-active' : '' }}"
                        href="{{ route('addresses.index') }}">
                         <i class="bi bi-geo-alt"></i>
                         <span>Addresses</span>
-                        <span class="app-nav__index">01</span>
+                        <span class="app-nav__index">02</span>
                     </a>
                 </li>
                 @can('rbac.manage')
@@ -33,7 +41,7 @@
                            href="{{ route('rbac.index') }}">
                             <i class="bi bi-shield-lock"></i>
                             <span>RBAC</span>
-                            <span class="app-nav__index">02</span>
+                            <span class="app-nav__index">03</span>
                         </a>
                     </li>
                 @endcan

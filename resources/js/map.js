@@ -21,13 +21,7 @@ const escape = (value) => {
     return div.innerHTML;
 };
 
-document.addEventListener('DOMContentLoaded', async () => {
-    const element = document.querySelector('[data-address-map]');
-
-    if (!element) {
-        return;
-    }
-
+async function drawMap(element) {
     const map = L.map(element, { scrollWheelZoom: false }).setView([12.8797, 121.774], 5);
 
     // Standard OpenStreetMap tiles. Attribution is required by the tile usage
@@ -45,10 +39,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!response.ok) throw new Error(response.status);
         points = await response.json();
     } catch (error) {
+        element.classList.remove('is-loading');
         element.classList.add('map--failed');
         element.textContent = 'Could not load the map.';
         return;
     }
+
+    // Past the fetch, so the panel stops shimmering whatever happens next.
+    element.classList.remove('is-loading');
 
     if (!points.length) {
         element.classList.add('map--empty');
@@ -70,7 +68,21 @@ document.addEventListener('DOMContentLoaded', async () => {
     const group = L.featureGroup(markers).addTo(map);
     map.fitBounds(group.getBounds(), { padding: [30, 30], maxZoom: 12 });
 
-    // The panel is laid out after the table draws; without this the tiles land
-    // in a container that had no height when Leaflet measured it.
-    setTimeout(() => map.invalidateSize(), 0);
-});
+    // The panel is laid out alongside the table, so the container can still have
+    // no height at the moment Leaflet first measures it. Re-measuring whenever
+    // the box actually changes size covers that first paint and any later one.
+    new ResizeObserver(() => map.invalidateSize()).observe(element);
+}
+
+const element = document.querySelector('[data-address-map]');
+
+if (element) {
+    // app.js only pulls this chunk in after the document has been parsed, so by
+    // now DOMContentLoaded has almost always already fired - waiting on it
+    // unconditionally registered the listener too late and the map never drew.
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => drawMap(element));
+    } else {
+        drawMap(element);
+    }
+}

@@ -18,8 +18,9 @@
             @endcan
         </div>
 
-        <div class="panel__body panel__body--flush">
+        <div class="panel__body panel__body--flush skeleton-host">
             {{ $dataTable->table(['class' => 'table table-hover align-middle w-100']) }}
+            <div class="skeleton-overlay skeleton-overlay--table" aria-hidden="true"></div>
         </div>
     </div>
 
@@ -32,7 +33,15 @@
         </div>
 
         <div class="panel__body panel__body--flush">
-            <div class="map" data-address-map data-url="{{ route('addresses.map') }}"></div>
+            {{-- is-loading is set here rather than by JS so the shimmer is up
+                 before the lazily imported Leaflet chunk has even arrived. --}}
+            <div class="map is-loading" data-address-map data-url="{{ route('addresses.map') }}">
+                <div class="skeleton-overlay skeleton-overlay--map" aria-hidden="true">
+                    <div class="skeleton skeleton--title" style="width: 30%"></div>
+                    <div class="skeleton skeleton--row mt-3" style="width: 85%"></div>
+                    <div class="skeleton skeleton--row mt-2" style="width: 62%"></div>
+                </div>
+            </div>
         </div>
     </div>
 

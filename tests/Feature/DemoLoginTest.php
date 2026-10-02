@@ -89,6 +89,11 @@ class DemoLoginTest extends TestCase
         ])->assertRedirect(route('home'));
 
         $this->assertAuthenticated();
-        $this->get(route('home'))->assertRedirect(route('addresses.index'));
+
+        // /home used to redirect on to the directory. It is the dashboard now,
+        // so signing in lands there directly.
+        $this->get(route('home'))
+            ->assertOk()
+            ->assertSee('Dashboard');
     }
 }

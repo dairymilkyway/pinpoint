@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AddressController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\GeoController;
 use App\Http\Controllers\RbacController;
 use Illuminate\Support\Facades\Auth;
@@ -8,14 +9,14 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return auth()->check()
-        ? redirect()->route('addresses.index')
+        ? redirect()->route('home')
         : view('landing');
 })->name('landing');
 
 Auth::routes();
 
 Route::middleware('auth')->group(function () {
-    Route::get('/home', fn () => redirect()->route('addresses.index'))->name('home');
+    Route::get('/home', [DashboardController::class, 'index'])->name('home');
 
     Route::get('addresses', [AddressController::class, 'index'])->name('addresses.index');
     Route::get('addresses/create', [AddressController::class, 'create'])->name('addresses.create');

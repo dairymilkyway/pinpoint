@@ -846,7 +846,10 @@ a {
 .map {
     height: 460px;
     background: var(--ink-900);
-    z-index: 0;
+    // Leaflet's panes are absolutely positioned, so the container needs to be
+    // the positioning context, and the loading overlay needs a z-index above
+    // those panes (they run up to 700) to stay visible while it is up.
+    position: relative;
 }
 
 .map--empty,
@@ -984,4 +987,173 @@ a {
 
 .attribution a:hover {
     color: var(--amber);
+}
+
+/* ==========================================================================
+   Skeleton shimmer
+
+   One primitive shared by every surface that waits on the network. A host
+   element gets .skeleton-host, an overlay inside it gets .skeleton-overlay, and
+   JS toggles .is-loading on the host. Nothing here is per-page.
+   ========================================================================== */
+
+@keyframes skeleton-sweep {
+    from { background-position: 200% 0; }
+    to { background-position: -200% 0; }
+}
+
+.skeleton {
+    display: block;
+    background-color: var(--ink-800);
+    background-image: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.055) 50%,
+        transparent 100%
+    );
+    background-size: 200% 100%;
+    background-repeat: no-repeat;
+    border-radius: 3px;
+    animation: skeleton-sweep 1.4s linear infinite;
+}
+
+.skeleton--title {
+    height: 0.7rem;
+}
+.skeleton--row {
+    height: 0.6rem;
+}
+
+/* A host is the positioning context; the overlay covers it while loading. */
+.skeleton-host {
+    position: relative;
+}
+
+.skeleton-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    display: none;
+    background: var(--ink-900);
+}
+
+.skeleton-host.is-loading .skeleton-overlay {
+    display: block;
+}
+
+/* The table variant lays its shimmer out as rows, one per column. */
+.skeleton-overlay--table {
+    padding: 0.5rem 1rem;
+}
+
+.skeleton-row {
+    display: flex;
+    gap: 1.25rem;
+    align-items: center;
+    padding: 0.7rem 0;
+    border-bottom: 1px solid var(--line);
+}
+
+.skeleton-row:last-child {
+    border-bottom: 0;
+}
+
+.skeleton-row > .skeleton {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+/* Sits above Leaflet's panes, which top out at z-index 700. */
+.skeleton-overlay--map {
+    z-index: 800;
+    display: none;
+    padding: 1.25rem;
+}
+
+.map.is-loading .skeleton-overlay--map {
+    display: block;
+}
+
+/* A select mid-fetch: visibly busy but still sized like itself. */
+select.is-busy {
+    color: var(--text-faint);
+    cursor: progress;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .skeleton {
+        animation: none;
+    }
+}
+
+/* ==========================================================================
+   Dashboard
+   ========================================================================== */
+
+.stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.stat__label {
+    margin-bottom: 0.5rem;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+}
+
+.stat__hint {
+    font-size: 0.75rem;
+    color: var(--text-faint);
+}
+
+.recent-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.75rem 1.25rem;
+    border-bottom: 1px solid var(--line);
+}
+
+.recent-row:last-child {
+    border-bottom: 0;
+}
+
+.access-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--line);
+}
+
+.access-row:last-of-type {
+    border-bottom: 0;
+}
+
+/* Progress rail used by the coverage figure. */
+.meter {
+    height: 6px;
+    border-radius: 999px;
+    background-color: var(--ink-800);
+    overflow: hidden;
+}
+
+.meter__fill {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background-color: var(--amber);
+}
+
+/* Bootstrap ships no min-width utility, and text-truncate needs it inside a
+   flex child or the text pushes the row wider than its column. */
+.min-w-0 {
+    min-width: 0;
 }

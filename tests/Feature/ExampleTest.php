@@ -8,8 +8,8 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * Covers the root route, which now serves a public landing page to guests
- * and forwards authenticated users into the directory.
+ * Covers the root route, which serves a public landing page to guests and
+ * forwards authenticated users to their dashboard.
  */
 class ExampleTest extends TestCase
 {
@@ -37,12 +37,12 @@ class ExampleTest extends TestCase
             ->assertSee(route('login'));
     }
 
-    public function test_an_authenticated_user_is_forwarded_to_the_address_book(): void
+    public function test_an_authenticated_user_is_forwarded_to_the_dashboard(): void
     {
         $user = User::factory()->create()->assignRole('Viewer');
 
         $this->actingAs($user)
             ->get('/')
-            ->assertRedirect('/addresses');
+            ->assertRedirect(route('home'));
     }
 }
