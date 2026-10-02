@@ -57,11 +57,18 @@ async function drawMap(element) {
     const markers = points.map((point) => {
         const where = [point.city, point.state].filter(Boolean).join(', ');
 
+        // The owner line only appears where there is more than one owner to tell
+        // apart. The dashboard map is the user's own pins, so it omits the field
+        // and the line goes with it.
+        const owner = point.owner
+            ? `<br><span class="map__owner">${escape(point.owner)}</span>`
+            : '';
+
         return L.marker([point.lat, point.lng]).bindPopup(
             `<strong>${escape(point.label)}</strong><br>`
             + `${escape(point.line)}<br>`
-            + `${escape(where)} ${escape(point.postal)}<br>`
-            + `<span class="map__owner">${escape(point.owner)}</span>`
+            + `${escape(where)} ${escape(point.postal)}`
+            + owner
         );
     });
 

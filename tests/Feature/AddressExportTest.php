@@ -49,6 +49,20 @@ class AddressExportTest extends TestCase
         $this->assertSame(['Zzuniqueville'], $cities);
     }
 
+    public function test_a_scoped_role_only_exports_its_own_rows(): void
+    {
+        $manager = $this->userWithRole('Manager');
+        Address::factory()->for($manager)->create(['city' => 'Zzmine', 'label' => 'Keep']);
+        Address::factory()->count(3)->create(['city' => 'Zztheirs', 'label' => 'Drop']);
+
+        $sheet = $this->exportSheet($manager);
+
+        // The export is built from the DataTable query, so it inherits the
+        // scoping without a rule of its own - this is the test that says so.
+        $this->assertCount(2, $sheet, 'header row plus exactly the one owned address');
+        $this->assertSame(['Zzmine'], array_column(array_slice($sheet, 1), 3));
+    }
+
     public function test_export_excludes_the_actions_column(): void
     {
         Address::factory()->create();

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Database\Factories\AddressFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -41,6 +42,18 @@ class Address extends Model
     public function hasCoordinates(): bool
     {
         return $this->latitude !== null && $this->longitude !== null;
+    }
+
+    /**
+     * Narrows a query to the addresses the user may see. Every read path - the
+     * table, its export, the map and the dashboard figures - goes through here,
+     * so the rule is stated once instead of per call site.
+     */
+    public function scopeVisibleTo(Builder $query, User $user): Builder
+    {
+        return $user->seesEveryAddress()
+            ? $query
+            : $query->where('addresses.user_id', $user->id);
     }
 
     public function user(): BelongsTo

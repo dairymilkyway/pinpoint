@@ -115,6 +115,68 @@ class DashboardTest extends TestCase
             ->assertSee('nothing has been shared with you yet');
     }
 
+    public function test_the_counts_are_scoped_for_every_role_but_admin(): void
+    {
+        $manager = $this->userWithRole('Manager');
+        Address::factory()->count(2)->for($manager)->create([
+            'city_code' => '1380100000',
+            'region_code' => '1300000000',
+        ]);
+        Address::factory()->count(5)->create();
+
+        $response = $this->actingAs($manager)->get(route('home'))->assertOk();
+
+        // Two of the seven, not all seven.
+        $response->assertSee('on file under your name');
+        $response->assertSee('2 of 2 addresses have coordinates.');
+    }
+
+    public function test_only_admin_gets_the_owners_card(): void
+    {
+        Address::factory()->count(3)->create();
+
+        $this->actingAs($this->userWithRole('Admin'))
+            ->get(route('home'))
+            ->assertOk()
+            ->assertSee('people holding at least one');
+
+        // Scoped to yourself it could only ever read 1, so it is dropped.
+        $this->actingAs($this->userWithRole('Manager'))
+            ->get(route('home'))
+            ->assertOk()
+            ->assertDontSee('people holding at least one');
+    }
+
+    public function test_the_dashboard_map_pins_only_your_own_addresses(): void
+    {
+        $admin = $this->userWithRole('Admin');
+        Address::factory()->count(2)->for($admin)->create(['label' => 'Mine']);
+        Address::factory()->count(3)->create(['label' => 'Theirs']);
+
+        // Even an Admin, who sees every row in the directory, gets a personal
+        // map here.
+        $points = $this->actingAs($admin)->getJson(route('home.map'))->assertOk()->json();
+
+        $this->assertCount(2, $points);
+        $this->assertSame(['Mine', 'Mine'], array_column($points, 'label'));
+    }
+
+    public function test_the_dashboard_map_requires_authentication(): void
+    {
+        $this->get(route('home.map'))->assertRedirect(route('login'));
+    }
+
+    public function test_a_user_with_no_pinned_addresses_gets_no_map_panel(): void
+    {
+        $viewer = $this->userWithRole('Viewer');
+        Address::factory()->for($viewer)->create(['latitude' => null, 'longitude' => null]);
+
+        $this->actingAs($viewer)
+            ->get(route('home'))
+            ->assertOk()
+            ->assertDontSee('Your locations');
+    }
+
     public function test_an_empty_directory_renders_without_errors(): void
     {
         $this->actingAs($this->userWithRole('Viewer'))

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+use App\Rbac;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -52,5 +53,15 @@ class User extends Authenticatable
     public function addresses(): HasMany
     {
         return $this->hasMany(Address::class);
+    }
+
+    /**
+     * Admin reads the whole address book; every other role is scoped to the
+     * addresses it owns. This is the single predicate the visibility scope and
+     * the policy both consult, so the table and the policy cannot disagree.
+     */
+    public function seesEveryAddress(): bool
+    {
+        return $this->hasRole(Rbac::ADMIN_ROLE);
     }
 }

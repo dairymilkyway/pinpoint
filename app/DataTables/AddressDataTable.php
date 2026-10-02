@@ -42,9 +42,15 @@ class AddressDataTable extends DataTable
             ->setRowId('id');
     }
 
+    /**
+     * Scoped to what the viewer may see. The Excel export is built from this
+     * same query, so it inherits the scoping without a second rule.
+     */
     public function query(Address $model): QueryBuilder
     {
-        return $model->newQuery()->with('user');
+        return $model->newQuery()
+            ->with('user')
+            ->visibleTo($this->request()->user());
     }
 
     public function html(): HtmlBuilder

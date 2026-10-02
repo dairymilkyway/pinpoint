@@ -34,21 +34,48 @@ class AddressDataTableTest extends TestCase
 
     public function test_viewer_row_actions_are_empty(): void
     {
-        Address::factory()->create();
+        $viewer = $this->userWithRole('Viewer');
+        Address::factory()->for($viewer)->create();
 
-        $row = $this->fetchRow($this->userWithRole('Viewer'));
+        $row = $this->fetchRow($viewer);
 
         $this->assertSame('', trim($row['actions']));
     }
 
     public function test_manager_row_actions_offer_edit_but_not_delete(): void
     {
-        Address::factory()->create();
+        $manager = $this->userWithRole('Manager');
+        Address::factory()->for($manager)->create();
 
-        $row = $this->fetchRow($this->userWithRole('Manager'));
+        $row = $this->fetchRow($manager);
 
         $this->assertStringContainsString('Edit', $row['actions']);
         $this->assertStringNotContainsString('Delete', $row['actions']);
+    }
+
+    public function test_a_scoped_role_only_sees_its_own_rows(): void
+    {
+        $manager = $this->userWithRole('Manager');
+        Address::factory()->for($manager)->create(['label' => 'Mine']);
+        Address::factory()->count(4)->create(['label' => 'Theirs']);
+
+        $response = $this->ajax($manager);
+
+        $response->assertOk();
+        $this->assertSame(1, $response->json('recordsTotal'));
+        $this->assertSame('Mine', $response->json('data.0.label'));
+    }
+
+    public function test_admin_still_sees_every_row(): void
+    {
+        $admin = $this->userWithRole('Admin');
+        Address::factory()->for($admin)->create();
+        Address::factory()->count(4)->create();
+
+        $response = $this->ajax($admin);
+
+        $response->assertOk();
+        $this->assertSame(5, $response->json('recordsTotal'));
     }
 
     public function test_search_filters_the_table(): void

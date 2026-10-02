@@ -96,11 +96,54 @@ class AddressAuthorizationTest extends TestCase
     public function test_manager_can_create_and_edit_but_cannot_delete(): void
     {
         $manager = $this->userWithRole('Manager');
-        $address = Address::factory()->create();
+        $own = Address::factory()->for($manager)->create();
 
         $this->actingAs($manager)->get(route('addresses.create'))->assertOk();
-        $this->actingAs($manager)->get(route('addresses.edit', $address))->assertOk();
-        $this->actingAs($manager)->delete(route('addresses.destroy', $address))->assertForbidden();
+        $this->actingAs($manager)->get(route('addresses.edit', $own))->assertOk();
+        $this->actingAs($manager)->delete(route('addresses.destroy', $own))->assertForbidden();
+    }
+
+    public function test_manager_cannot_open_another_owners_address_by_url(): void
+    {
+        $manager = $this->userWithRole('Manager');
+        $theirs = Address::factory()->create();
+
+        // Hiding the row from the listing is not enough on its own - the id is
+        // guessable, so the policy has to refuse it too.
+        $this->actingAs($manager)->get(route('addresses.edit', $theirs))->assertForbidden();
+    }
+
+    public function test_manager_cannot_update_another_owners_address(): void
+    {
+        $manager = $this->userWithRole('Manager');
+        $theirs = Address::factory()->create(['city' => 'Original']);
+
+        $this->actingAs($manager)
+            ->put(route('addresses.update', $theirs), $this->validPayload(['city' => 'Tampered']))
+            ->assertForbidden();
+
+        $this->assertSame('Original', $theirs->fresh()->city);
+    }
+
+    public function test_admin_can_open_any_address(): void
+    {
+        $admin = $this->userWithRole('Admin');
+
+        $this->actingAs($admin)
+            ->get(route('addresses.edit', Address::factory()->create()))
+            ->assertOk();
+    }
+
+    public function test_a_scoped_role_only_maps_its_own_addresses(): void
+    {
+        $viewer = $this->userWithRole('Viewer');
+        Address::factory()->for($viewer)->create(['label' => 'Mine']);
+        Address::factory()->count(3)->create(['label' => 'Theirs']);
+
+        $points = $this->actingAs($viewer)->getJson(route('addresses.map'))->assertOk()->json();
+
+        $this->assertCount(1, $points);
+        $this->assertSame('Mine', $points[0]['label']);
     }
 
     /** @return array<string, mixed> */

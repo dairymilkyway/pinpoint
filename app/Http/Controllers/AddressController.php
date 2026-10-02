@@ -8,6 +8,7 @@ use App\Http\Requests\UpdateAddressRequest;
 use App\Models\Address;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
 
@@ -29,11 +30,12 @@ class AddressController extends Controller
      * a popup shows - the map has the same visibility as the table next to it,
      * gated by the same policy.
      */
-    public function map(): JsonResponse
+    public function map(Request $request): JsonResponse
     {
         $this->authorize('viewAny', Address::class);
 
         $points = Address::query()
+            ->visibleTo($request->user())
             ->with('user:id,name')
             ->whereNotNull('latitude')
             ->whereNotNull('longitude')

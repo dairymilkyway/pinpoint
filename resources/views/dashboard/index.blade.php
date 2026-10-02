@@ -149,5 +149,30 @@
                 @endif
             </div>
         </div>
+
+        @if ($mayMap)
+            <div class="panel">
+                <div class="panel__head">
+                    <div>
+                        <p class="eyebrow mb-1">Your locations</p>
+                        <p class="mb-0 text-dim small">
+                            Pinned from the coordinates on your own addresses. Tiles by OpenStreetMap.
+                        </p>
+                    </div>
+                </div>
+
+                <div class="panel__body panel__body--flush">
+                    {{-- Same host markup and same lazily imported module as the
+                         directory map, so there is one map implementation. --}}
+                    <div class="map is-loading" data-address-map data-url="{{ route('home.map') }}">
+                        <div class="skeleton-overlay skeleton-overlay--map" aria-hidden="true">
+                            <div class="skeleton skeleton--title" style="width: 30%"></div>
+                            <div class="skeleton skeleton--row mt-3" style="width: 85%"></div>
+                            <div class="skeleton skeleton--row mt-2" style="width: 62%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        @endif
     @endif
 @endsection

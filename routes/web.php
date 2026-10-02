@@ -17,6 +17,7 @@ Auth::routes();
 
 Route::middleware('auth')->group(function () {
     Route::get('/home', [DashboardController::class, 'index'])->name('home');
+    Route::get('home/map', [DashboardController::class, 'map'])->name('home.map');
 
     Route::get('addresses', [AddressController::class, 'index'])->name('addresses.index');
     Route::get('addresses/create', [AddressController::class, 'create'])->name('addresses.create');
