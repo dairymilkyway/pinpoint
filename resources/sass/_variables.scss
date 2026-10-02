@@ -1,0 +1,22 @@
+// Brand
+// A single warm accent, used sparingly. Bootstrap regenerates every
+// -primary component from this, so buttons, focus rings and links all
+// shift together instead of being patched one by one.
+$primary: #e9a23b;
+
+// Typography
+// Self-hosted via @fontsource-variable (imported in resources/js/app.js).
+// No remote font CDN at runtime.
+$font-family-sans-serif: 'Space Grotesk Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+$font-family-monospace: 'JetBrains Mono Variable', ui-monospace, 'Cascadia Mono', monospace;
+$font-size-base: 0.9375rem;
+$line-height-base: 1.6;
+$headings-font-weight: 600;
+
+// Geometry
+// Crisp corners and no drop shadows. Depth comes from hairline borders
+// and surface steps, not from blur.
+$border-radius: 0.375rem;
+$border-radius-sm: 0.25rem;
+$border-radius-lg: 0.5rem;
+$enable-shadows: false;
