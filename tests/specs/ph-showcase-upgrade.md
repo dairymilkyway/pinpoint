@@ -81,9 +81,10 @@ by a device-emulated screenshot.
 - [x] An address with coordinates renders a Leaflet pin on OpenStreetMap
 - [x] No API key, no live external geocoding call at request time
 
-The pin criterion is only observable on rows that have coordinates. The
-developer database still holds pre-geo rows with null coordinates, so the map
-renders empty until it is reseeded - see the open item at the foot of this file.
+The pin criterion is only observable on rows that have coordinates. Manila,
+Makati and Quezon City have no coordinates in the sourced dataset and so
+produce no pin; they remain selectable in the dropdowns. This is recorded in
+`resources/data/README.md`.
 
 ### 5. Regression
 - [x] `php artisan test` passes, including the original 37 tests
@@ -110,18 +111,19 @@ Making `city_code` unconditionally required would break `AddressCrudTest` and
 scoped as "must stay green, unchanged", so the requirement was narrowed rather
 than the tests rewritten.
 
-## Open item: the development database has not been reseeded
+## Resolved: the development database was reseeded
 
-The database at `127.0.0.1` still holds the output of the earlier non-idempotent
-seeder, run twice: nine users (including eight role-less faker accounts) and
+The database at `127.0.0.1` held the output of the earlier non-idempotent
+seeder, run twice: nine users (seven of them role-less faker accounts) and
 fifty addresses with NULL coordinates, since the geo columns were added
-afterwards. The map therefore shows no pins and `/addresses/map` returns `[]`.
+afterwards.
 
-Clearing this needs `php artisan migrate:fresh --seed`, which the exam brief
-lists as a destructive command requiring approval before it runs. It has not
-been run. The seeders themselves are idempotent and correct - `SeederTest`
-proves that against a clean database - so this is a stale-data problem, not a
-seeder problem.
+`php artisan migrate:fresh --seed` was run with the user's explicit approval,
+which the exam brief requires for destructive commands. The result is eight
+users, none without a role, and sixty-four addresses, every one with
+coordinates, eight per owner with exactly one default each. `/addresses/map`
+returns all sixty-four pins, confirmed over HTTP by signing in as the seeded
+admin.
 
 ## Implementation layers
 
