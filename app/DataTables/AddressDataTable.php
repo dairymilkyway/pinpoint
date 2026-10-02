@@ -56,6 +56,11 @@ class AddressDataTable extends DataTable
             ->orderBy(1)
             ->lengthMenu([10, 25, 50, 100])
             ->dom('Bfrtip')
+            // DataTables 2 ignores the dom string for its indicator and injects a
+            // four-dot div before the table whenever processing is on. The panel
+            // has its own shimmer, so the dots are switched off at the source
+            // rather than hidden with CSS.
+            ->processing(false)
             ->buttons($this->getButtons());
     }
 

@@ -14,6 +14,10 @@ import 'datatables.net-buttons-bs5/css/buttons.bootstrap5.min.css';
 
 import * as skeleton from './skeleton';
 
+// The address form's region/province/city picker. It is small, so it is bundled
+// rather than lazily imported, and guards itself on the form's presence.
+import './geo';
+
 // Leaflet is a third of the bundle and only one page uses it, so it is pulled in
 // on demand rather than shipped to every visitor.
 const mapElement = document.querySelector('[data-address-map]');
@@ -42,6 +46,17 @@ if (table) {
     $table.on('preXhr.dt', () => skeleton.show(host, columns));
     $table.on('draw.dt', () => skeleton.hide(host));
     $table.on('xhr.dt', () => skeleton.hide(host));
+}
+
+// A submitted form leaves the page waiting on the server with nothing on screen
+// until the next one paints. The bar waits a beat before appearing so a fast
+// response does not flash it, and the sweep is the same one the skeletons use.
+const progress = document.querySelector('.page-progress');
+
+if (progress) {
+    document.addEventListener('submit', () => {
+        window.setTimeout(() => progress.classList.add('is-visible'), 120);
+    });
 }
 
 // The addresses table is rendered over ajax, so the delete buttons only exist

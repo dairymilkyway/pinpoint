@@ -24,7 +24,9 @@ dead files have since been deleted - see Follow-ups below.
 - `resources/views/layouts/app.blade.php` (nav gains Dashboard)
 - `resources/views/addresses/index.blade.php` (skeleton hooks on table and map)
 - `resources/views/addresses/partials/form.blade.php` (skeleton hook on the city select)
-- `resources/js/app.js`, `resources/js/map.js` (skeleton wiring)
+- `resources/js/app.js`, `resources/js/map.js`, `resources/js/geo.js` (skeleton wiring)
+- `app/DataTables/AddressDataTable.php` (processing indicator off)
+- `resources/views/layouts/app.blade.php` (the page-progress bar)
 - `resources/sass/app.scss` (the skeleton primitive)
 - `tests/Feature/DashboardTest.php` (new)
 
@@ -61,7 +63,8 @@ Manager but not Viewer. Figures render as 64 addresses, 8 owners, 60 cities,
 - [x] One shimmer primitive defined once and reused, not per-page copies
 - [x] The addresses table shows skeleton rows while its ajax request is in flight
 - [x] The map panel shimmers until Leaflet has drawn
-- [x] The city select shows a busy state while its fetch is in flight
+- [x] The city select shimmers while its fetch is in flight
+- [x] No page shows any other kind of loading indicator
 - [x] Shimmer is suppressed under `prefers-reduced-motion`
 
 The primitive is `resources/js/skeleton.js` plus the `.skeleton` rules in
@@ -73,6 +76,35 @@ The map's overlay needed two fixes found while wiring it: `.map` was not a
 positioning context, and the overlay at `z-index: 1` would have rendered beneath
 Leaflet's panes, which run up to 700. It is now `position: relative` with the
 overlay at 800.
+
+### 2a. Follow-up - the DataTables dots and full page loads
+
+Two gaps found after the first pass:
+
+**DataTables drew its own indicator.** `processing` was on, and DataTables 2 no
+longer honours the `dom` string for that element - it appends a four-dot div
+before the table whenever `processing` is true, so dropping `p` from the `dom`
+string would not have removed it. Switched off at the source with
+`->processing(false)` in `AddressDataTable::html()` rather than hidden with CSS.
+The shimmer was already covering the same wait.
+
+**The city select was the last non-shimmer surface.** It used a `select.is-busy`
+colour change and a "Loading..." option. The picker's JavaScript moved out of an
+inline `@push('scripts')` block in the form partial and into
+`resources/js/geo.js`, because an inline script cannot import the shared module.
+The select is now wrapped in a `.skeleton-host` with a `.skeleton-overlay--field`
+child, and `select.is-busy` is gone. `geo.js` is bundled rather than lazily
+imported - it is small, and it guards itself on the form's presence.
+
+**Full page loads had nothing at all.** Signing in, saving, deleting and logging
+out all leave the browser waiting with no feedback. One `div.page-progress` in
+`layouts/app.blade.php` plus a delegated submit handler in `app.js` now shows a
+sweep using the same `skeleton-sweep` keyframes. It is deliberately a submit
+handler and not a link interceptor, so middle-click, back and modifier-clicks are
+untouched. It waits 120ms before appearing so a fast response does not flash it.
+
+Every page shares `layouts/app.blade.php`, so the bar is present on all of them,
+and every page's asynchronous wait now uses the one shimmer primitive.
 
 ### 3. Regression
 - [x] `php artisan test` passes

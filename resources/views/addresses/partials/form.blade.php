@@ -89,10 +89,19 @@
 
         <div class="col-md-4">
             <label for="city_code" class="form-label">City or municipality <span class="text-dim">*</span></label>
-            <select name="city_code" id="city_code" required data-selected="{{ $selectedCity }}"
-                    class="form-select @error('city_code') is-invalid @enderror">
-                <option value="">Choose a region first</option>
-            </select>
+
+            {{-- Cities are the only field on this form fetched over the network,
+                 so it is wrapped as a skeleton host and uses the shared shimmer. --}}
+            <div class="skeleton-host" data-city-field>
+                <select name="city_code" id="city_code" required data-selected="{{ $selectedCity }}"
+                        class="form-select @error('city_code') is-invalid @enderror">
+                    <option value="">Choose a region first</option>
+                </select>
+                <div class="skeleton-overlay skeleton-overlay--field" aria-hidden="true">
+                    <div class="skeleton skeleton--field"></div>
+                </div>
+            </div>
+
             @error('city_code') <div class="invalid-feedback">{{ $message }}</div> @enderror
         </div>
 
@@ -142,116 +151,3 @@
         <a href="{{ route('addresses.index') }}" class="btn btn-outline-secondary">Cancel</a>
     </div>
 </form>
-
-@push('scripts')
-    <script>
-        (() => {
-            const root = document.querySelector('[data-geo-picker]');
-            if (!root) return;
-
-            const endpoint = root.dataset.citiesUrl;
-            const byRegion = JSON.parse(root.dataset.provinces || '{}');
-
-            const region = root.querySelector('[name="region_code"]');
-            const province = root.querySelector('[name="province_code"]');
-            const city = root.querySelector('[name="city_code"]');
-            const cityName = root.querySelector('[data-city-name]');
-            const state = root.querySelector('[name="state"]');
-            const country = root.querySelector('[name="country"]');
-            const postal = root.querySelector('[name="postal_code"]');
-
-            const option = (label, value) => new Option(label, value);
-
-            const fillProvinces = (regionCode, selected) => {
-                const list = byRegion[regionCode] || {};
-                const codes = Object.keys(list);
-
-                province.innerHTML = '';
-                province.append(option(codes.length ? 'Choose a province…' : 'No provinces in this region', ''));
-                codes.forEach((code) => province.append(option(list[code], code)));
-
-                // Metro Manila and the independent cities hang straight off their
-                // region, so there is nothing to choose here.
-                province.disabled = codes.length === 0;
-                province.value = selected || '';
-            };
-
-            const applyCity = () => {
-                const picked = city.selectedOptions[0];
-                if (!picked || !picked.value) return;
-
-                if (cityName) cityName.value = picked.textContent.trim();
-                if (state) state.value = picked.dataset.state || '';
-                if (country) country.value = 'Philippines';
-                if (postal && picked.dataset.postal) postal.value = picked.dataset.postal;
-            };
-
-            const loadCities = async (regionCode, provinceCode, selected) => {
-                city.innerHTML = '';
-
-                if (!regionCode) {
-                    city.append(option('Choose a region first', ''));
-                    city.disabled = true;
-                    return;
-                }
-
-                // A region with provinces needs one chosen before cities mean anything.
-                if (Object.keys(byRegion[regionCode] || {}).length && !provinceCode) {
-                    city.append(option('Choose a province first', ''));
-                    city.disabled = true;
-                    return;
-                }
-
-                city.disabled = false;
-                city.classList.add('is-busy');
-                city.append(option('Loading…', ''));
-
-                const query = new URLSearchParams({ region: regionCode });
-                if (provinceCode) query.set('province', provinceCode);
-
-                let cities;
-                try {
-                    const response = await fetch(`${endpoint}?${query}`, { headers: { Accept: 'application/json' } });
-                    if (!response.ok) throw new Error(response.status);
-                    cities = await response.json();
-                } catch (error) {
-                    city.classList.remove('is-busy');
-                    city.innerHTML = '';
-                    city.append(option('Could not load cities', ''));
-                    return;
-                }
-
-                city.classList.remove('is-busy');
-                city.innerHTML = '';
-                city.append(option('Choose a city or municipality…', ''));
-
-                Object.entries(cities).forEach(([code, entry]) => {
-                    const node = option(entry.name, code);
-                    node.dataset.state = entry.state || '';
-                    node.dataset.postal = entry.postal || '';
-                    city.append(node);
-                });
-
-                if (selected) {
-                    city.value = selected;
-                    applyCity();
-                }
-            };
-
-            region.addEventListener('change', () => {
-                fillProvinces(region.value, '');
-                loadCities(region.value, '');
-            });
-
-            province.addEventListener('change', () => loadCities(region.value, province.value, ''));
-            city.addEventListener('change', applyCity);
-
-            // Restore the stored selection when editing.
-            if (region.value) {
-                const wantedProvince = province.dataset.selected || '';
-                fillProvinces(region.value, wantedProvince);
-                loadCities(region.value, wantedProvince, city.dataset.selected || '');
-            }
-        })();
-    </script>
-@endpush

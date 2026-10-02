@@ -10,6 +10,11 @@
     @vite(['resources/sass/app.scss', 'resources/js/app.js'])
 </head>
 <body>
+{{-- Every full page load that the user starts themselves - sign in, save,
+     delete - is a wait with nothing on screen otherwise. One element, shown by
+     the submit handler in app.js, reused on every page. --}}
+<div class="page-progress" aria-hidden="true"></div>
+
 @auth
     <div class="app-shell">
         <aside class="app-sidebar">
