@@ -146,18 +146,59 @@ class DashboardTest extends TestCase
             ->assertDontSee('people holding at least one');
     }
 
-    public function test_the_dashboard_map_pins_only_your_own_addresses(): void
+    public function test_the_dashboard_map_follows_the_same_scope_as_the_cards(): void
     {
         $admin = $this->userWithRole('Admin');
         Address::factory()->count(2)->for($admin)->create(['label' => 'Mine']);
         Address::factory()->count(3)->create(['label' => 'Theirs']);
 
-        // Even an Admin, who sees every row in the directory, gets a personal
-        // map here.
+        // Admin pins everything, so the map agrees with the 5 in the cards
+        // above it rather than contradicting them.
+        $adminPoints = $this->actingAs($admin)->getJson(route('home.map'))->assertOk()->json();
+
+        $this->assertCount(5, $adminPoints);
+
+        // Everyone else sees only their own, and gets no owner to tell apart.
+        $manager = $this->userWithRole('Manager');
+        Address::factory()->count(2)->for($manager)->create(['label' => 'Mine']);
+
+        $managerPoints = $this->actingAs($manager)->getJson(route('home.map'))->assertOk()->json();
+
+        $this->assertCount(2, $managerPoints);
+        $this->assertSame(['Mine', 'Mine'], array_column($managerPoints, 'label'));
+        $this->assertSame([null, null], array_column($managerPoints, 'owner'));
+    }
+
+    public function test_only_admin_gets_an_owner_on_each_pin(): void
+    {
+        $admin = $this->userWithRole('Admin');
+        Address::factory()->for($admin)->create();
+
         $points = $this->actingAs($admin)->getJson(route('home.map'))->assertOk()->json();
 
-        $this->assertCount(2, $points);
-        $this->assertSame(['Mine', 'Mine'], array_column($points, 'label'));
+        $this->assertNotNull($points[0]['owner']);
+    }
+
+    public function test_the_map_panel_is_named_for_what_the_role_pins(): void
+    {
+        Address::factory()->count(2)->create();
+
+        $this->actingAs($this->userWithRole('Admin'))
+            ->get(route('home'))
+            ->assertOk()
+            ->assertSee('User locations')
+            ->assertSee('Every address on file')
+            ->assertDontSee('Your locations');
+
+        $manager = $this->userWithRole('Manager');
+        Address::factory()->for($manager)->create();
+
+        $this->actingAs($manager)
+            ->get(route('home'))
+            ->assertOk()
+            ->assertSee('Your locations')
+            ->assertSee('Your own addresses')
+            ->assertDontSee('User locations');
     }
 
     public function test_the_dashboard_map_requires_authentication(): void

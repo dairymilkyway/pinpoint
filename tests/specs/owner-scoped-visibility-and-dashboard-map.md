@@ -77,7 +77,7 @@ row hidden from the table cannot be reached by editing the URL.
 ### 2. Dashboard
 - [x] Counts, coverage and the recent list are scoped to what the user can see
 - [x] Admin still sees the Owners card; Manager and Viewer do not
-- [x] The dashboard map pins only the signed-in user's addresses, Admin included
+- [x] The dashboard map follows the same scope as the cards above it
 - [x] The map sits where the Map coverage panel used to, and that panel is gone
 - [x] A user with nothing to pin still gets the panel, with the module's own
       empty state rather than a second branch in Blade
@@ -93,6 +93,20 @@ percentage, its `.meter` rail and the now-unused `mayMap` view variable.
 The one fact a map cannot show is how many addresses are *not* on it, so
 "8 of 8 addresses have coordinates" moved into the panel's description line
 rather than being dropped with the rest of the panel. Nothing else survived.
+
+### 2b. Follow-up - the map follows the scope, not the viewer
+
+The map was first built as personal: `$user->addresses()`, so an Admin pinned 8
+while the cards directly above read 64. That contradiction was the bug, not the
+personal framing.
+
+It now goes through `visibleTo()` like every other figure on the page, so Admin
+pins the whole book and everyone else pins their own. Admin's pins carry an owner
+so the popup says whose each one is; a scoped role has only one owner in play, so
+that field is `null` and `map.js` drops the line.
+
+The panel is named for its contents rather than for the viewer - "User locations"
+for Admin, "Your locations" otherwise - and the coverage sentence matches.
 
 ### 3. Regression
 - [x] `php artisan test` passes

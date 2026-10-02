@@ -113,22 +113,27 @@ class DashboardController extends Controller
     }
 
     /**
-     * The dashboard map is deliberately not the scoped listing. It is the
-     * signed-in user's own pins, which means Admin sees fewer here than in the
-     * directory beside it.
+     * The same scope as every other figure on the page, so the map agrees with
+     * the cards above it: Admin pins the whole book, everyone else pins their
+     * own. The owner is only sent when there is more than one to tell apart.
      */
     public function map(Request $request): JsonResponse
     {
-        $points = $request->user()->addresses()
+        $user = $request->user();
+
+        $points = Address::query()
+            ->visibleTo($user)
+            ->with('user:id,name')
             ->whereNotNull('latitude')
             ->whereNotNull('longitude')
-            ->get(['id', 'label', 'line1', 'line2', 'city', 'state', 'postal_code', 'latitude', 'longitude'])
+            ->get(['id', 'user_id', 'label', 'line1', 'line2', 'city', 'state', 'postal_code', 'latitude', 'longitude'])
             ->map(fn (Address $address) => [
                 'label' => $address->label,
                 'line' => trim($address->line1.($address->line2 ? ', '.$address->line2 : '')),
                 'city' => $address->city,
                 'state' => $address->state,
                 'postal' => $address->postal_code,
+                'owner' => $user->seesEveryAddress() ? $address->user?->name : null,
                 'lat' => $address->latitude,
                 'lng' => $address->longitude,
             ]);

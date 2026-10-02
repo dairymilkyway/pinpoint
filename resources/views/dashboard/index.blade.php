@@ -6,6 +6,7 @@
 @section('content')
     @php($user = auth()->user())
     @php($role = $user->getRoleNames()->first())
+    @php($seesEveryAddress = $user->seesEveryAddress())
 
     <div class="panel">
         <div class="panel__head">
@@ -99,11 +100,13 @@
                 <div class="panel h-100">
                     <div class="panel__head">
                         <div>
-                            <p class="eyebrow mb-1">Your locations</p>
+                            {{-- Admin pins the whole book, so the panel is named for
+                                 what is on it rather than for the viewer. --}}
+                            <p class="eyebrow mb-1">{{ $seesEveryAddress ? 'User locations' : 'Your locations' }}</p>
                             {{-- The map shows which addresses are pinned; this line
                                  is the one fact it cannot: how many are not.
                                  Kept on one line so the sentence renders contiguously. --}}
-                            <p class="mb-0 text-dim small">Your own addresses, pinned. {{ number_format($coverage['pinned']) }} of {{ number_format($coverage['total']) }} addresses have coordinates. Tiles by OpenStreetMap.</p>
+                            <p class="mb-0 text-dim small">{{ $seesEveryAddress ? 'Every address on file' : 'Your own addresses' }}, pinned. {{ number_format($coverage['pinned']) }} of {{ number_format($coverage['total']) }} addresses have coordinates. Tiles by OpenStreetMap.</p>
                         </div>
                     </div>
 
