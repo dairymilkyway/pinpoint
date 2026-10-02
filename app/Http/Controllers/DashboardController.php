@@ -35,7 +35,6 @@ class DashboardController extends Controller
             'recent' => $mayReadDirectory ? $this->recent($user) : new Collection(),
             'access' => $user->can(Rbac::MANAGE_PERMISSION) ? $this->access() : null,
             'mayCreate' => $user->can('addresses.create'),
-            'mayMap' => $user->addresses()->whereNotNull('latitude')->exists(),
         ]);
     }
 

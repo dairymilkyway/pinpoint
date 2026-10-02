@@ -39,7 +39,9 @@ that was pointed out.
 - `app/Http/Controllers/AddressController.php` (scoped map)
 - `app/Http/Controllers/DashboardController.php` (scoped figures, new own-pins map)
 - `routes/web.php` (the dashboard map endpoint)
-- `resources/views/dashboard/index.blade.php` (map panel, card set per role)
+- `resources/views/dashboard/index.blade.php` (map replaces the coverage panel,
+  card set per role)
+- `resources/sass/app.scss` (the `.meter` rail is removed with the panel)
 - `resources/js/map.js` (owner line becomes optional)
 - tests
 
@@ -76,8 +78,21 @@ row hidden from the table cannot be reached by editing the URL.
 - [x] Counts, coverage and the recent list are scoped to what the user can see
 - [x] Admin still sees the Owners card; Manager and Viewer do not
 - [x] The dashboard map pins only the signed-in user's addresses, Admin included
-- [x] A user with no pinned addresses sees no map panel
+- [x] The map sits where the Map coverage panel used to, and that panel is gone
+- [x] A user with nothing to pin still gets the panel, with the module's own
+      empty state rather than a second branch in Blade
 - [x] The Access panel stays Admin-only
+
+### 2a. Follow-up - the map replaces the coverage panel
+
+The map was first added as its own full-width panel below the row, which left
+two coverage-flavoured panels on one page. It now occupies the right-hand
+column slot the Map coverage panel had, and that panel is deleted along with its
+percentage, its `.meter` rail and the now-unused `mayMap` view variable.
+
+The one fact a map cannot show is how many addresses are *not* on it, so
+"8 of 8 addresses have coordinates" moved into the panel's description line
+rather than being dropped with the rest of the panel. Nothing else survived.
 
 ### 3. Regression
 - [x] `php artisan test` passes

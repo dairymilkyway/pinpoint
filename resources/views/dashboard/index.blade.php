@@ -99,21 +99,26 @@
                 <div class="panel h-100">
                     <div class="panel__head">
                         <div>
-                            <p class="eyebrow mb-1">Map coverage</p>
-                            <p class="mb-0 text-dim small">Addresses that carry coordinates and can be pinned.</p>
+                            <p class="eyebrow mb-1">Your locations</p>
+                            {{-- The map shows which addresses are pinned; this line
+                                 is the one fact it cannot: how many are not.
+                                 Kept on one line so the sentence renders contiguously. --}}
+                            <p class="mb-0 text-dim small">Your own addresses, pinned. {{ number_format($coverage['pinned']) }} of {{ number_format($coverage['total']) }} addresses have coordinates. Tiles by OpenStreetMap.</p>
                         </div>
                     </div>
 
-                    <div class="panel__body">
-                        <p class="stat__value mb-2">{{ $coverage['percent'] }}%</p>
-
-                        <div class="meter" role="img"
-                             aria-label="{{ $coverage['pinned'] }} of {{ $coverage['total'] }} addresses are pinned">
-                            <span class="meter__fill" style="width: {{ $coverage['percent'] }}%"></span>
+                    <div class="panel__body panel__body--flush">
+                        {{-- Same host markup and same lazily imported module as the
+                             directory map, so there is one map implementation. The
+                             module renders its own "nothing to pin" state when the
+                             response is empty, so there is no branch here. --}}
+                        <div class="map is-loading" data-address-map data-url="{{ route('home.map') }}">
+                            <div class="skeleton-overlay skeleton-overlay--map" aria-hidden="true">
+                                <div class="skeleton skeleton--title" style="width: 30%"></div>
+                                <div class="skeleton skeleton--row mt-3" style="width: 85%"></div>
+                                <div class="skeleton skeleton--row mt-2" style="width: 62%"></div>
+                            </div>
                         </div>
-
-                        {{-- Kept on one line so the sentence renders contiguously. --}}
-                        <p class="mb-0 mt-3 text-dim small">{{ number_format($coverage['pinned']) }} of {{ number_format($coverage['total']) }} addresses have coordinates.</p>
                     </div>
                 </div>
 
@@ -149,30 +154,5 @@
                 @endif
             </div>
         </div>
-
-        @if ($mayMap)
-            <div class="panel">
-                <div class="panel__head">
-                    <div>
-                        <p class="eyebrow mb-1">Your locations</p>
-                        <p class="mb-0 text-dim small">
-                            Pinned from the coordinates on your own addresses. Tiles by OpenStreetMap.
-                        </p>
-                    </div>
-                </div>
-
-                <div class="panel__body panel__body--flush">
-                    {{-- Same host markup and same lazily imported module as the
-                         directory map, so there is one map implementation. --}}
-                    <div class="map is-loading" data-address-map data-url="{{ route('home.map') }}">
-                        <div class="skeleton-overlay skeleton-overlay--map" aria-hidden="true">
-                            <div class="skeleton skeleton--title" style="width: 30%"></div>
-                            <div class="skeleton skeleton--row mt-3" style="width: 85%"></div>
-                            <div class="skeleton skeleton--row mt-2" style="width: 62%"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        @endif
     @endif
 @endsection

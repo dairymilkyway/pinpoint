@@ -1183,21 +1183,6 @@ a {
     border-bottom: 0;
 }
 
-/* Progress rail used by the coverage figure. */
-.meter {
-    height: 6px;
-    border-radius: 999px;
-    background-color: var(--ink-800);
-    overflow: hidden;
-}
-
-.meter__fill {
-    display: block;
-    height: 100%;
-    border-radius: inherit;
-    background-color: var(--amber);
-}
-
 /* Bootstrap ships no min-width utility, and text-truncate needs it inside a
    flex child or the text pushes the row wider than its column. */
 .min-w-0 {

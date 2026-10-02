@@ -101,7 +101,6 @@ class DashboardTest extends TestCase
 
         // Four addresses, one owner, two distinct cities, two distinct regions.
         $response->assertSee('4');
-        $response->assertSee('75%');
         $response->assertSee('3 of 4 addresses have coordinates.');
     }
 
@@ -166,15 +165,19 @@ class DashboardTest extends TestCase
         $this->get(route('home.map'))->assertRedirect(route('login'));
     }
 
-    public function test_a_user_with_no_pinned_addresses_gets_no_map_panel(): void
+    public function test_the_map_panel_is_present_even_with_nothing_to_pin(): void
     {
         $viewer = $this->userWithRole('Viewer');
         Address::factory()->for($viewer)->create(['latitude' => null, 'longitude' => null]);
 
+        // The panel is unconditional; the module renders its own empty state
+        // once an empty response comes back, so there is no branch here.
         $this->actingAs($viewer)
             ->get(route('home'))
             ->assertOk()
-            ->assertDontSee('Your locations');
+            ->assertSee('Your locations')
+            ->assertSee(route('home.map'))
+            ->assertSee('0 of 1 addresses have coordinates.');
     }
 
     public function test_an_empty_directory_renders_without_errors(): void
@@ -183,6 +186,6 @@ class DashboardTest extends TestCase
             ->get(route('home'))
             ->assertOk()
             ->assertSee('No addresses on file yet.')
-            ->assertSee('0%');
+            ->assertSee('0 of 0 addresses have coordinates.');
     }
 }
