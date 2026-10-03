@@ -44,13 +44,13 @@ class RegistrationTest extends TestCase
         $this->assertDatabaseHas('users', ['email' => 'nena@example.test']);
     }
 
-    public function test_registration_grants_the_viewer_role(): void
+    public function test_registration_grants_the_customer_role(): void
     {
         $this->register();
 
         $user = User::where('email', 'nena@example.test')->firstOrFail();
 
-        $this->assertTrue($user->hasRole(Rbac::VIEWER_ROLE));
+        $this->assertTrue($user->hasRole(Rbac::CUSTOMER_ROLE));
         $this->assertSame(1, $user->getRoleNames()->count());
     }
 
@@ -71,7 +71,7 @@ class RegistrationTest extends TestCase
     {
         $this->register();
 
-        // Viewer is the least privileged role, so registration must not hand out
+        // Customer is the least privileged role, so registration must not hand out
         // anything more than read access.
         $this->get(route('addresses.create'))->assertForbidden();
         $this->get(route('rbac.index'))->assertForbidden();

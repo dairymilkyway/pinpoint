@@ -19,7 +19,7 @@ class RbacController extends Controller
             'roles' => Role::with('permissions')->orderBy('name')->get(),
             'permissions' => Permission::orderBy('name')->get(),
             'users' => User::with('roles')->orderBy('name')->get(),
-            'adminRole' => Rbac::ADMIN_ROLE,
+            'superadminRole' => Rbac::SUPERADMIN_ROLE,
             'managePermission' => Rbac::MANAGE_PERMISSION,
         ]);
     }
@@ -38,9 +38,11 @@ class RbacController extends Controller
         foreach (Role::all() as $role) {
             $names = $submitted[$role->name] ?? [];
 
-            // The Admin role keeps rbac.manage no matter what the form posts,
-            // otherwise an admin could lock every admin out of this page.
-            if ($role->name === Rbac::ADMIN_ROLE) {
+            // The Superadmin role keeps rbac.manage no matter what the form
+            // posts, otherwise a superadmin could lock every superadmin out of
+            // this page. This follows the role that holds the permission, not
+            // the one whose name happens to start with "admin".
+            if ($role->name === Rbac::SUPERADMIN_ROLE) {
                 $names[] = Rbac::MANAGE_PERMISSION;
             }
 
@@ -54,6 +56,14 @@ class RbacController extends Controller
 
     public function assignRole(Request $request, User $user): RedirectResponse
     {
+        // Enforced here and not only in the form. The form disables the control
+        // for a Superadmin, but a disabled control is a rendering decision, and
+        // losing the last Superadmin cannot be undone from inside the app -
+        // nobody would be left holding rbac.manage to put it back.
+        if ($user->hasRole(Rbac::SUPERADMIN_ROLE)) {
+            return back()->with('error', "{$user->name} holds the Superadmin role. It cannot be changed here.");
+        }
+
         $validated = $request->validate([
             'role' => ['required', 'string', 'exists:roles,name'],
         ]);

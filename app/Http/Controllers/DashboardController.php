@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\AddressStats;
 use App\Models\Address;
+use App\Models\AddressRequest;
 use App\Models\User;
 use App\Rbac;
 use Illuminate\Http\JsonResponse;
@@ -32,10 +34,31 @@ class DashboardController extends Controller
             'mayReadDirectory' => $mayReadDirectory,
             'cards' => $mayReadDirectory ? $this->cards($user) : [],
             'coverage' => $mayReadDirectory ? $this->coverage($user) : null,
-            'recent' => $mayReadDirectory ? $this->recent($user) : new Collection(),
+            'myRequests' => $mayReadDirectory ? $this->myRequests($user) : new Collection,
+            'waitingOnADecision' => $mayReadDirectory ? $this->waitingOnADecision($user) : 0,
+            'chart' => $mayReadDirectory ? $this->regions($user) : null,
             'access' => $user->can(Rbac::MANAGE_PERMISSION) ? $this->access() : null,
             'mayCreate' => $user->can('addresses.create'),
         ]);
+    }
+
+    /**
+     * The region distribution.
+     *
+     * Gated on seeing the whole directory rather than on a role list: a chart of
+     * where addresses are spread only says something to a reader who can reach
+     * more than their own handful. The Customer therefore keeps the Recent
+     * panel, which is more use for eight rows than a chart of them.
+     *
+     * @return array<int, array{label: string, value: int}>|null
+     */
+    private function regions(User $user): ?array
+    {
+        if (! $user->seesEveryAddress()) {
+            return null;
+        }
+
+        return AddressStats::regions(Address::query()->visibleTo($user));
     }
 
     /**
@@ -50,10 +73,11 @@ class DashboardController extends Controller
     private function cards(User $user): array
     {
         $visible = Address::query()->visibleTo($user);
+        $counts = AddressStats::counts($visible);
 
         $cards = [[
             'label' => 'Addresses',
-            'value' => (clone $visible)->count(),
+            'value' => $counts['addresses'],
             'hint' => $user->seesEveryAddress() ? 'on file across every owner' : 'on file under your name',
         ]];
 
@@ -67,13 +91,13 @@ class DashboardController extends Controller
 
         $cards[] = [
             'label' => 'Cities',
-            'value' => (clone $visible)->whereNotNull('city_code')->distinct()->count('city_code'),
+            'value' => $counts['cities'],
             'hint' => 'distinct cities and municipalities',
         ];
 
         $cards[] = [
             'label' => 'Regions',
-            'value' => (clone $visible)->whereNotNull('region_code')->distinct()->count('region_code'),
+            'value' => $counts['regions'],
             'hint' => 'regions represented',
         ];
 
@@ -89,27 +113,44 @@ class DashboardController extends Controller
      */
     private function coverage(User $user): array
     {
-        $visible = Address::query()->visibleTo($user);
-
-        $total = (clone $visible)->count();
-        $pinned = (clone $visible)->whereNotNull('latitude')->whereNotNull('longitude')->count();
-
-        return [
-            'pinned' => $pinned,
-            'total' => $total,
-            'percent' => $total === 0 ? 0 : (int) round($pinned / $total * 100),
-        ];
+        return AddressStats::coverage(Address::query()->visibleTo($user));
     }
 
-    /** @return Collection<int, Address> */
-    private function recent(User $user): Collection
+    /**
+     * What this account has asked an administrator to change.
+     *
+     * Only ever filled for a role that can raise one. A reader looks at the whole
+     * queue on /requests, and repeating it here as "your requests" would be the
+     * same rows under a wrong name.
+     *
+     * Waiting first, then the settled ones: a request nobody has ruled on yet is
+     * the only entry on this list the reader of it can still act on.
+     *
+     * @return Collection<int, AddressRequest>
+     */
+    private function myRequests(User $user): Collection
     {
-        return Address::query()
+        if (! $user->can(Rbac::REQUEST_PERMISSION)) {
+            return new Collection;
+        }
+
+        return AddressRequest::query()
             ->visibleTo($user)
-            ->with('user:id,name')
+            ->with('decider:id,name')
+            ->orderByRaw('CASE WHEN status = ? THEN 0 ELSE 1 END', [AddressRequest::STATUS_PENDING])
             ->latest('id')
-            ->limit(6)
-            ->get(['id', 'user_id', 'label', 'line1', 'city', 'state', 'postal_code', 'is_default']);
+            ->limit(5)
+            ->get();
+    }
+
+    /** Counted in SQL and not from the list above, which is capped at five. */
+    private function waitingOnADecision(User $user): int
+    {
+        if (! $user->can(Rbac::REQUEST_PERMISSION)) {
+            return 0;
+        }
+
+        return AddressRequest::query()->visibleTo($user)->pending()->count();
     }
 
     /**
@@ -121,24 +162,10 @@ class DashboardController extends Controller
     {
         $user = $request->user();
 
-        $points = Address::query()
-            ->visibleTo($user)
-            ->with('user:id,name')
-            ->whereNotNull('latitude')
-            ->whereNotNull('longitude')
-            ->get(['id', 'user_id', 'label', 'line1', 'line2', 'city', 'state', 'postal_code', 'latitude', 'longitude'])
-            ->map(fn (Address $address) => [
-                'label' => $address->label,
-                'line' => trim($address->line1.($address->line2 ? ', '.$address->line2 : '')),
-                'city' => $address->city,
-                'state' => $address->state,
-                'postal' => $address->postal_code,
-                'owner' => $user->seesEveryAddress() ? $address->user?->name : null,
-                'lat' => $address->latitude,
-                'lng' => $address->longitude,
-            ]);
-
-        return response()->json($points);
+        return response()->json(AddressStats::mapPoints(
+            Address::query()->visibleTo($user),
+            $user->seesEveryAddress(),
+        ));
     }
 
     /**

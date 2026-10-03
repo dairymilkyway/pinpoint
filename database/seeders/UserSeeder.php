@@ -27,7 +27,7 @@ class UserSeeder extends Seeder
             if (blank($account['email'] ?? null) || blank($account['password'] ?? null)) {
                 throw new RuntimeException(
                     "The {$account['role']} demo account needs both an email and a password in .env "
-                    .'(SEED_ADMIN_EMAIL/SEED_ADMIN_PASSWORD for Admin, SEED_DEMO_PASSWORD for the rest).'
+                    .'(SEED_ADMIN_EMAIL/SEED_ADMIN_PASSWORD for the Superadmin, SEED_DEMO_PASSWORD for the rest).'
                 );
             }
 
@@ -41,7 +41,7 @@ class UserSeeder extends Seeder
         }
 
         foreach (config('demo.owners', []) as $name => $email) {
-            $this->upsert($email, $name, $password, Rbac::VIEWER_ROLE);
+            $this->upsert($email, $name, $password, Rbac::CUSTOMER_ROLE);
         }
     }
 

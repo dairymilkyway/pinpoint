@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Address;
+use App\Models\AddressRequest;
 use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -32,7 +33,7 @@ class DashboardTest extends TestCase
 
     public function test_all_three_roles_reach_the_dashboard(): void
     {
-        foreach (['Admin', 'Manager', 'Viewer'] as $role) {
+        foreach (['Superadmin', 'Admin', 'Customer'] as $role) {
             $this->actingAs($this->userWithRole($role))
                 ->get(route('home'))
                 ->assertOk()
@@ -42,19 +43,19 @@ class DashboardTest extends TestCase
 
     public function test_the_signed_in_landing_redirects_to_the_dashboard(): void
     {
-        $this->actingAs($this->userWithRole('Viewer'))
+        $this->actingAs($this->userWithRole('Customer'))
             ->get(route('landing'))
             ->assertRedirect(route('home'));
     }
 
-    public function test_only_admin_sees_the_access_panel(): void
+    public function test_only_the_superadmin_sees_the_access_panel(): void
     {
-        $this->actingAs($this->userWithRole('Admin'))
+        $this->actingAs($this->userWithRole('Superadmin'))
             ->get(route('home'))
             ->assertOk()
             ->assertSee('Access');
 
-        foreach (['Manager', 'Viewer'] as $role) {
+        foreach (['Admin', 'Customer'] as $role) {
             $this->actingAs($this->userWithRole($role))
                 ->get(route('home'))
                 ->assertOk()
@@ -64,14 +65,14 @@ class DashboardTest extends TestCase
 
     public function test_only_roles_that_may_create_get_the_new_address_action(): void
     {
-        foreach (['Admin', 'Manager'] as $role) {
+        foreach (['Superadmin', 'Admin'] as $role) {
             $this->actingAs($this->userWithRole($role))
                 ->get(route('home'))
                 ->assertOk()
                 ->assertSee('New address');
         }
 
-        $this->actingAs($this->userWithRole('Viewer'))
+        $this->actingAs($this->userWithRole('Customer'))
             ->get(route('home'))
             ->assertOk()
             ->assertDontSee('New address');
@@ -79,7 +80,7 @@ class DashboardTest extends TestCase
 
     public function test_the_counts_reflect_the_stored_addresses(): void
     {
-        $owner = $this->userWithRole('Admin');
+        $owner = $this->userWithRole('Superadmin');
 
         Address::factory()->count(3)->create([
             'user_id' => $owner->id,
@@ -114,33 +115,35 @@ class DashboardTest extends TestCase
             ->assertSee('nothing has been shared with you yet');
     }
 
-    public function test_the_counts_are_scoped_for_every_role_but_admin(): void
+    public function test_the_counts_are_scoped_for_a_customer(): void
     {
-        $manager = $this->userWithRole('Manager');
-        Address::factory()->count(2)->for($manager)->create([
+        $customer = $this->userWithRole('Customer');
+        Address::factory()->count(2)->for($customer)->create([
             'city_code' => '1380100000',
             'region_code' => '1300000000',
         ]);
         Address::factory()->count(5)->create();
 
-        $response = $this->actingAs($manager)->get(route('home'))->assertOk();
+        $response = $this->actingAs($customer)->get(route('home'))->assertOk();
 
         // Two of the seven, not all seven.
         $response->assertSee('on file under your name');
         $response->assertSee('2 of 2 addresses have coordinates.');
     }
 
-    public function test_only_admin_gets_the_owners_card(): void
+    public function test_both_directory_reading_roles_get_the_owners_card(): void
     {
         Address::factory()->count(3)->create();
 
-        $this->actingAs($this->userWithRole('Admin'))
-            ->get(route('home'))
-            ->assertOk()
-            ->assertSee('people holding at least one');
+        foreach (['Superadmin', 'Admin'] as $role) {
+            $this->actingAs($this->userWithRole($role))
+                ->get(route('home'))
+                ->assertOk()
+                ->assertSee('people holding at least one');
+        }
 
         // Scoped to yourself it could only ever read 1, so it is dropped.
-        $this->actingAs($this->userWithRole('Manager'))
+        $this->actingAs($this->userWithRole('Customer'))
             ->get(route('home'))
             ->assertOk()
             ->assertDontSee('people holding at least one');
@@ -148,33 +151,35 @@ class DashboardTest extends TestCase
 
     public function test_the_dashboard_map_follows_the_same_scope_as_the_cards(): void
     {
-        $admin = $this->userWithRole('Admin');
-        Address::factory()->count(2)->for($admin)->create(['label' => 'Mine']);
+        Address::factory()->count(2)->create(['label' => 'Mine']);
         Address::factory()->count(3)->create(['label' => 'Theirs']);
 
-        // Admin pins everything, so the map agrees with the 5 in the cards
-        // above it rather than contradicting them.
-        $adminPoints = $this->actingAs($admin)->getJson(route('home.map'))->assertOk()->json();
+        // Both readers pin everything, so the map agrees with the 5 in the
+        // cards above it rather than contradicting them.
+        foreach (['Superadmin', 'Admin'] as $role) {
+            $points = $this->actingAs($this->userWithRole($role))
+                ->getJson(route('home.map'))->assertOk()->json();
 
-        $this->assertCount(5, $adminPoints);
+            $this->assertCount(5, $points);
+        }
 
-        // Everyone else sees only their own, and gets no owner to tell apart.
-        $manager = $this->userWithRole('Manager');
-        Address::factory()->count(2)->for($manager)->create(['label' => 'Mine']);
+        // The Customer sees only its own, and gets no owner to tell apart.
+        $customer = $this->userWithRole('Customer');
+        Address::factory()->count(2)->for($customer)->create(['label' => 'Mine']);
 
-        $managerPoints = $this->actingAs($manager)->getJson(route('home.map'))->assertOk()->json();
+        $customerPoints = $this->actingAs($customer)->getJson(route('home.map'))->assertOk()->json();
 
-        $this->assertCount(2, $managerPoints);
-        $this->assertSame(['Mine', 'Mine'], array_column($managerPoints, 'label'));
-        $this->assertSame([null, null], array_column($managerPoints, 'owner'));
+        $this->assertCount(2, $customerPoints);
+        $this->assertSame(['Mine', 'Mine'], array_column($customerPoints, 'label'));
+        $this->assertSame([null, null], array_column($customerPoints, 'owner'));
     }
 
-    public function test_only_admin_gets_an_owner_on_each_pin(): void
+    public function test_only_a_directory_reader_gets_an_owner_on_each_pin(): void
     {
-        $admin = $this->userWithRole('Admin');
-        Address::factory()->for($admin)->create();
+        $superadmin = $this->userWithRole('Superadmin');
+        Address::factory()->for($superadmin)->create();
 
-        $points = $this->actingAs($admin)->getJson(route('home.map'))->assertOk()->json();
+        $points = $this->actingAs($superadmin)->getJson(route('home.map'))->assertOk()->json();
 
         $this->assertNotNull($points[0]['owner']);
     }
@@ -183,17 +188,19 @@ class DashboardTest extends TestCase
     {
         Address::factory()->count(2)->create();
 
-        $this->actingAs($this->userWithRole('Admin'))
-            ->get(route('home'))
-            ->assertOk()
-            ->assertSee('User locations')
-            ->assertSee('Every address on file')
-            ->assertDontSee('Your locations');
+        foreach (['Superadmin', 'Admin'] as $role) {
+            $this->actingAs($this->userWithRole($role))
+                ->get(route('home'))
+                ->assertOk()
+                ->assertSee('User locations')
+                ->assertSee('Every address on file')
+                ->assertDontSee('Your locations');
+        }
 
-        $manager = $this->userWithRole('Manager');
-        Address::factory()->for($manager)->create();
+        $customer = $this->userWithRole('Customer');
+        Address::factory()->for($customer)->create();
 
-        $this->actingAs($manager)
+        $this->actingAs($customer)
             ->get(route('home'))
             ->assertOk()
             ->assertSee('Your locations')
@@ -208,12 +215,12 @@ class DashboardTest extends TestCase
 
     public function test_the_map_panel_is_present_even_with_nothing_to_pin(): void
     {
-        $viewer = $this->userWithRole('Viewer');
-        Address::factory()->for($viewer)->create(['latitude' => null, 'longitude' => null]);
+        $customer = $this->userWithRole('Customer');
+        Address::factory()->for($customer)->create(['latitude' => null, 'longitude' => null]);
 
         // The panel is unconditional; the module renders its own empty state
         // once an empty response comes back, so there is no branch here.
-        $this->actingAs($viewer)
+        $this->actingAs($customer)
             ->get(route('home'))
             ->assertOk()
             ->assertSee('Your locations')
@@ -223,10 +230,136 @@ class DashboardTest extends TestCase
 
     public function test_an_empty_directory_renders_without_errors(): void
     {
-        $this->actingAs($this->userWithRole('Viewer'))
+        $this->actingAs($this->userWithRole('Customer'))
             ->get(route('home'))
             ->assertOk()
-            ->assertSee('No addresses on file yet.')
+            ->assertSee('You have not asked for a change yet.')
             ->assertSee('0 of 0 addresses have coordinates.');
+    }
+
+    public function test_the_superadmin_gets_the_chart_ranked_and_named_by_region(): void
+    {
+        $superadmin = $this->userWithRole('Superadmin');
+        Address::factory()->count(2)->for($superadmin)->create([
+            'city_code' => '1380100000',
+            'region_code' => '1300000000',
+        ]);
+        Address::factory()->for($superadmin)->create([
+            'city_code' => '0722000000',
+            'region_code' => '0700000000',
+        ]);
+
+        $response = $this->actingAs($superadmin)->get(route('home'))->assertOk();
+
+        $response->assertSee('data-region-chart', false);
+        $response->assertSee('By region');
+
+        // Ordered, so the ranking is asserted and not just the totals.
+        $response->assertSeeInOrder([
+            'National Capital Region: 2 addresses',
+            'Central Visayas: 1 address',
+        ]);
+
+        // The PSGC code is a grouping key, not something to put in front of a user.
+        $response->assertDontSee('1300000000');
+    }
+
+    public function test_the_chart_covers_the_whole_directory_for_either_reader(): void
+    {
+        Address::factory()->create([
+            'city_code' => '1380100000',
+            'region_code' => '1300000000',
+        ]);
+        Address::factory()->count(3)->create([
+            'city_code' => '0722000000',
+            'region_code' => '0700000000',
+        ]);
+
+        // The panel is only ever shown to a directory-wide reader, so neither
+        // of them gets a chart scoped to its own rows.
+        foreach (['Superadmin', 'Admin'] as $role) {
+            $response = $this->actingAs($this->userWithRole($role))->get(route('home'))->assertOk();
+
+            $response->assertSee('data-region-chart', false);
+            $response->assertSeeInOrder([
+                'Central Visayas: 3 addresses',
+                'National Capital Region: 1 address',
+            ]);
+        }
+    }
+
+    /**
+     * The Customer's column used to be the six most recently added addresses,
+     * which said nothing the address table does not already say. It is now the
+     * one thing this role does that no other panel mentions.
+     */
+    public function test_a_customer_gets_their_own_requests_in_place_of_recent(): void
+    {
+        $customer = $this->userWithRole('Customer');
+        $theirs = $this->userWithRole('Customer');
+
+        $mine = Address::factory()->for($customer)->create(['label' => 'Home']);
+        $notMine = Address::factory()->for($theirs)->create(['label' => 'Their Depot']);
+
+        AddressRequest::create([
+            'user_id' => $customer->id,
+            'address_id' => $mine->id,
+            'type' => AddressRequest::TYPE_UPDATE,
+            'payload' => ['label' => 'Home'],
+            'before' => $mine->snapshot(),
+        ]);
+
+        AddressRequest::create([
+            'user_id' => $theirs->id,
+            'address_id' => $notMine->id,
+            'type' => AddressRequest::TYPE_UPDATE,
+            'payload' => ['label' => 'Their Depot'],
+            'before' => $notMine->snapshot(),
+        ]);
+
+        $html = $this->actingAs($customer)->get(route('home'))->assertOk()->getContent();
+
+        $this->assertStringContainsString('Your requests', $html);
+        $this->assertStringContainsString('1 waiting on a decision.', $html);
+        $this->assertStringContainsString('Home', $html);
+
+        // Scoped like every other figure on the page.
+        $this->assertStringNotContainsString('Their Depot', $html);
+
+        $this->assertStringNotContainsString('data-region-chart', $html);
+        $this->assertStringNotContainsString('By region', $html);
+    }
+
+    public function test_the_chart_panel_replaces_recent_for_a_reader(): void
+    {
+        $admin = $this->userWithRole('Admin');
+        Address::factory()->for($admin)->create();
+
+        // a reader is charted, so Recent is not the panel in that column at all.
+        $this->actingAs($admin)
+            ->get(route('home'))
+            ->assertOk()
+            ->assertSee('By region')
+            ->assertDontSee('>Recent<', false);
+    }
+
+    public function test_a_reader_with_nothing_on_file_still_gets_the_chart_panel(): void
+    {
+        // An empty array is falsy in PHP, so the view has to test for null - a
+        // wrong check here would silently swap the panel back to Recent.
+        $this->actingAs($this->userWithRole('Superadmin'))
+            ->get(route('home'))
+            ->assertOk()
+            ->assertSee('By region')
+            ->assertSee('data-points="[]"', false)
+            ->assertDontSee('>Recent<', false);
+    }
+
+    public function test_an_account_with_no_role_gets_no_chart(): void
+    {
+        $this->actingAs(User::factory()->create())
+            ->get(route('home'))
+            ->assertOk()
+            ->assertDontSee('data-region-chart', false);
     }
 }

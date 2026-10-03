@@ -26,93 +26,131 @@ class RbacTest extends TestCase
         return User::factory()->create()->assignRole($role);
     }
 
-    public function test_admin_can_open_the_rbac_page(): void
+    public function test_superadmin_can_open_the_rbac_page(): void
     {
-        $this->actingAs($this->userWithRole('Admin'))
+        $this->actingAs($this->userWithRole('Superadmin'))
             ->get(route('rbac.index'))
             ->assertOk()
             ->assertSee('Permission matrix');
     }
 
-    public function test_manager_cannot_open_the_rbac_page(): void
+    public function test_admin_cannot_open_the_rbac_page(): void
     {
-        $this->actingAs($this->userWithRole('Manager'))
+        $this->actingAs($this->userWithRole('Admin'))
             ->get(route('rbac.index'))
             ->assertForbidden();
     }
 
-    public function test_viewer_cannot_save_permissions(): void
+    public function test_customer_cannot_save_permissions(): void
     {
-        $this->actingAs($this->userWithRole('Viewer'))
+        $this->actingAs($this->userWithRole('Customer'))
             ->post(route('rbac.permissions'), $this->matrix(['addresses.view']))
             ->assertForbidden();
     }
 
     public function test_granting_a_permission_takes_effect_on_the_next_request(): void
     {
-        $viewer = $this->userWithRole('Viewer');
+        $customer = $this->userWithRole('Customer');
 
-        $this->actingAs($viewer)->get(route('addresses.create'))->assertForbidden();
+        $this->actingAs($customer)->get(route('addresses.create'))->assertForbidden();
 
-        $this->actingAs($this->userWithRole('Admin'))
+        $this->actingAs($this->userWithRole('Superadmin'))
             ->post(route('rbac.permissions'), $this->matrix(['addresses.view', 'addresses.create']))
             ->assertRedirect();
 
-        $this->assertTrue($viewer->fresh()->can('addresses.create'));
+        $this->assertTrue($customer->fresh()->can('addresses.create'));
 
-        $this->actingAs($viewer->fresh())->get(route('addresses.create'))->assertOk();
+        $this->actingAs($customer->fresh())->get(route('addresses.create'))->assertOk();
     }
 
     public function test_revoking_a_permission_takes_effect_on_the_next_request(): void
     {
-        $manager = $this->userWithRole('Manager');
+        $admin = $this->userWithRole('Admin');
 
-        $this->actingAs($manager)->get(route('addresses.create'))->assertOk();
+        $this->actingAs($admin)->get(route('addresses.create'))->assertOk();
 
-        $this->actingAs($this->userWithRole('Admin'))
+        $this->actingAs($this->userWithRole('Superadmin'))
             ->post(route('rbac.permissions'), $this->matrix(['addresses.view'], ['addresses.view']))
             ->assertRedirect();
 
-        $this->actingAs($manager->fresh())->get(route('addresses.create'))->assertForbidden();
+        $this->actingAs($admin->fresh())->get(route('addresses.create'))->assertForbidden();
     }
 
-    public function test_admin_role_cannot_lose_rbac_manage(): void
+    public function test_superadmin_role_cannot_lose_rbac_manage(): void
     {
         // Post an Admin row with every box unchecked, as a hostile form would.
-        $this->actingAs($this->userWithRole('Admin'))
+        $this->actingAs($this->userWithRole('Superadmin'))
             ->post(route('rbac.permissions'), [
                 'permissions' => [
-                    'Admin' => [],
-                    'Manager' => ['addresses.view'],
-                    'Viewer' => ['addresses.view'],
+                    'Superadmin' => [],
+                    'Admin' => ['addresses.view'],
+                    'Customer' => ['addresses.view'],
                 ],
             ])
             ->assertRedirect();
 
-        $this->assertTrue(Role::findByName('Admin')->hasPermissionTo(Rbac::MANAGE_PERMISSION));
+        $this->assertTrue(Role::findByName('Superadmin')->hasPermissionTo(Rbac::MANAGE_PERMISSION));
 
-        $this->actingAs($this->userWithRole('Admin'))
+        $this->actingAs($this->userWithRole('Superadmin'))
             ->get(route('rbac.index'))
             ->assertOk();
     }
 
-    public function test_admin_can_assign_a_role_to_a_user(): void
+    public function test_superadmin_can_assign_a_role_to_a_user(): void
     {
         $user = User::factory()->create();
 
-        $this->actingAs($this->userWithRole('Admin'))
-            ->post(route('rbac.users.role', $user), ['role' => 'Manager'])
+        $this->actingAs($this->userWithRole('Superadmin'))
+            ->post(route('rbac.users.role', $user), ['role' => 'Admin'])
             ->assertRedirect()
             ->assertSessionHas('success');
 
-        $this->assertTrue($user->fresh()->hasRole('Manager'));
+        $this->assertTrue($user->fresh()->hasRole('Admin'));
+    }
+
+    /**
+     * The form disables the control for a Superadmin, but a disabled control is
+     * a rendering decision. Demoting the last one would leave nobody holding
+     * rbac.manage, and there is no way back from inside the app.
+     */
+    public function test_a_superadmin_cannot_be_demoted(): void
+    {
+        $superadmin = $this->userWithRole('Superadmin');
+
+        $this->actingAs($this->userWithRole('Superadmin'))
+            ->post(route('rbac.users.role', $superadmin), ['role' => 'Admin'])
+            ->assertRedirect()
+            ->assertSessionHas('error');
+
+        $this->assertTrue($superadmin->fresh()->hasRole('Superadmin'));
+        $this->assertFalse($superadmin->fresh()->hasRole('Admin'));
+    }
+
+    public function test_the_matrix_locks_rbac_manage_on_the_superadmin_column(): void
+    {
+        $html = $this->actingAs($this->userWithRole('Superadmin'))
+            ->get(route('rbac.index'))->assertOk()->getContent();
+
+        // Matched loosely on purpose: the assertion is that this one box cannot
+        // be operated, not the order Blade writes its attributes in.
+        $this->assertMatchesRegularExpression(
+            '/name="permissions\[Superadmin\]\[\]"\s+value="rbac\.manage"[^>]*disabled/',
+            $html,
+        );
+
+        // And only that one - the rest of the column still posts, or saving the
+        // matrix would strip the Superadmin of everything but rbac.manage.
+        $this->assertMatchesRegularExpression(
+            '/name="permissions\[Superadmin\]\[\]"\s+value="addresses\.view"(?![^>]*disabled)/',
+            $html,
+        );
     }
 
     public function test_an_unknown_role_is_rejected(): void
     {
         $user = User::factory()->create();
 
-        $this->actingAs($this->userWithRole('Admin'))
+        $this->actingAs($this->userWithRole('Superadmin'))
             ->post(route('rbac.users.role', $user), ['role' => 'Superuser'])
             ->assertSessionHasErrors('role');
     }
@@ -120,18 +158,18 @@ class RbacTest extends TestCase
     /**
      * Build a complete matrix submission, the way the real form posts it.
      *
-     * @param  list<string>  $viewerPermissions
-     * @param  list<string>|null  $managerPermissions  Null keeps the seeded Manager set.
+     * @param  list<string>  $customerPermissions
+     * @param  list<string>|null  $adminPermissions  Null keeps the seeded Admin set.
      * @return array<string, mixed>
      */
-    private function matrix(array $viewerPermissions, ?array $managerPermissions = null): array
+    private function matrix(array $customerPermissions, ?array $adminPermissions = null): array
     {
         return [
             'permissions' => [
-                'Admin' => Rbac::PERMISSIONS,
-                'Manager' => $managerPermissions
+                'Superadmin' => Rbac::PERMISSIONS,
+                'Admin' => $adminPermissions
                     ?? ['addresses.view', 'addresses.create', 'addresses.edit', 'addresses.export'],
-                'Viewer' => $viewerPermissions,
+                'Customer' => $customerPermissions,
             ],
         ];
     }

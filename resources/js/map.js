@@ -34,18 +34,31 @@ async function drawMap(element) {
 
     let points = [];
 
-    try {
-        const response = await fetch(element.dataset.url, { headers: { Accept: 'application/json' } });
-        if (!response.ok) throw new Error(response.status);
-        points = await response.json();
-    } catch (error) {
-        element.classList.remove('is-loading');
-        element.classList.add('map--failed');
-        element.textContent = 'Could not load the map.';
-        return;
+    if (element.dataset.points !== undefined) {
+        // A page that already holds its pins sends them in the markup, the same
+        // way the chart does, so there is no request and no endpoint to guard.
+        // A malformed attribute is a build fault rather than something a viewer
+        // could retry, so it falls back to the empty state instead of the
+        // failure state.
+        try {
+            points = JSON.parse(element.dataset.points) || [];
+        } catch {
+            points = [];
+        }
+    } else {
+        try {
+            const response = await fetch(element.dataset.url, { headers: { Accept: 'application/json' } });
+            if (!response.ok) throw new Error(response.status);
+            points = await response.json();
+        } catch (error) {
+            element.classList.remove('is-loading');
+            element.classList.add('map--failed');
+            element.textContent = 'Could not load the map.';
+            return;
+        }
     }
 
-    // Past the fetch, so the panel stops shimmering whatever happens next.
+    // Past the load, so the panel stops shimmering whatever happens next.
     element.classList.remove('is-loading');
 
     if (!points.length) {

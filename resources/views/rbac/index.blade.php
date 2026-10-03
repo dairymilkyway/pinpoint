@@ -10,7 +10,7 @@
                 <p class="eyebrow mb-1">Permission matrix</p>
                 <p class="mb-0 text-dim small">
                     Check a box to grant a permission to a role, then save. Changes take effect on the next request.
-                    <code class="mono">{{ $managePermission }}</code> is always kept on the {{ $adminRole }} role.
+                    <code class="mono">{{ $managePermission }}</code> is always kept on the {{ $superadminRole }} role.
                 </p>
             </div>
         </div>
@@ -34,16 +34,24 @@
                                 <td>
                                     <span class="matrix__perm">{{ $permission->name }}</span>
                                     @if ($permission->name === $managePermission)
-                                        <span class="badge badge-amber ms-2">locked to {{ $adminRole }}</span>
+                                        <span class="badge badge-amber ms-2">locked to {{ $superadminRole }}</span>
                                     @endif
                                 </td>
                                 @foreach ($roles as $role)
                                     @php($granted = $role->permissions->contains('name', $permission->name))
+                                    {{-- The badge above says this one is locked to the
+                                         Superadmin, so the box has to be locked too. It
+                                         was tickable, and unticking it did nothing but
+                                         look like it had worked - the controller puts it
+                                         back. A disabled input is not submitted, which is
+                                         exactly right here: the controller re-adds it. --}}
+                                    @php($locked = $role->name === $superadminRole && $permission->name === $managePermission)
                                     <td>
                                         <input type="checkbox" class="form-check-input"
                                                name="permissions[{{ $role->name }}][]"
                                                value="{{ $permission->name }}"
-                                               @checked($granted)
+                                               @checked($granted || $locked)
+                                               @disabled($locked)
                                                aria-label="{{ $permission->name }} for {{ $role->name }}">
                                     </td>
                                 @endforeach
@@ -89,19 +97,30 @@
                             </td>
                             <td class="text-dim mono" style="font-size: 0.8125rem;">{{ $user->email }}</td>
                             <td>
-                                <form method="POST" action="{{ route('rbac.users.role', $user) }}" class="d-flex gap-2">
-                                    @csrf
-                                    <label class="visually-hidden" for="role-{{ $user->id }}">Role for {{ $user->name }}</label>
-                                    <select name="role" id="role-{{ $user->id }}" class="form-select form-select-sm">
-                                        @foreach ($roles as $role)
-                                            <option value="{{ $role->name }}"
-                                                @selected($user->hasRole($role->name))>
-                                                {{ $role->name }}
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                    <button type="submit" class="btn btn-sm btn-outline-secondary text-nowrap">Update</button>
-                                </form>
+                                @if ($user->hasRole($superadminRole))
+                                    {{-- Not reassignable, and the controller refuses it
+                                         too: demoting the last Superadmin would leave
+                                         nobody able to reach this page, with no way back
+                                         from inside the app. --}}
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="badge badge-amber">{{ $superadminRole }}</span>
+                                        <span class="text-dim small">Locked to this account.</span>
+                                    </div>
+                                @else
+                                    <form method="POST" action="{{ route('rbac.users.role', $user) }}" class="d-flex gap-2">
+                                        @csrf
+                                        <label class="visually-hidden" for="role-{{ $user->id }}">Role for {{ $user->name }}</label>
+                                        <select name="role" id="role-{{ $user->id }}" class="form-select form-select-sm">
+                                            @foreach ($roles as $role)
+                                                <option value="{{ $role->name }}"
+                                                    @selected($user->hasRole($role->name))>
+                                                    {{ $role->name }}
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                        <button type="submit" class="btn btn-sm btn-outline-secondary text-nowrap">Update</button>
+                                    </form>
+                                @endif
                             </td>
                         </tr>
                     @endforeach

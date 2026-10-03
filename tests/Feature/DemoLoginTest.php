@@ -30,7 +30,7 @@ class DemoLoginTest extends TestCase
         config([
             'demo.enabled' => $enabled,
             'demo.accounts' => [[
-                'role' => 'Admin',
+                'role' => 'Superadmin',
                 'name' => 'Ana Reyes',
                 'email' => self::EMAIL,
                 'password' => self::PASSWORD,
@@ -78,7 +78,7 @@ class DemoLoginTest extends TestCase
             'name' => 'Ana Reyes',
             'email' => self::EMAIL,
             'password' => Hash::make(self::PASSWORD),
-        ])->assignRole('Admin');
+        ])->assignRole('Superadmin');
 
         // The picker fills the real form with these values; the login must go
         // through the ordinary guard rather than any shortcut.

@@ -39,7 +39,7 @@
     </div>
 
     @if (! $mayReadDirectory)
-        {{-- Registration now grants Viewer, so this is only the honest state for
+        {{-- Registration now grants Customer, so this is only the honest state for
              an account whose role was revoked - it renders instead of a 403. --}}
         <div class="panel">
             <div class="panel__body">
@@ -61,47 +61,151 @@
             @endforeach
         </div>
 
-        <div class="row g-4">
-            <div class="col-lg-7">
-                <div class="panel h-100">
-                    <div class="panel__head">
-                        <div>
-                            <p class="eyebrow mb-1">Recent</p>
-                            <p class="mb-0 text-dim small">The six most recently added addresses.</p>
-                        </div>
+        @if ($access)
+            {{-- Superadmin only: the same permission that opens /rbac gates this.
+                 Directly under the figures rather than at the foot of the page,
+                 because the one account that sees it is the one whose job starts
+                 with the roles, and it was previously below a full-height map. --}}
+            <div class="panel mb-4">
+                <div class="panel__head">
+                    <div>
+                        <p class="eyebrow mb-1">Access</p>
+                        <p class="mb-0 text-dim small">Everything the permission system currently holds.</p>
                     </div>
 
-                    <div class="panel__body panel__body--flush">
-                        @forelse ($recent as $address)
-                            <div class="recent-row">
-                                <div class="min-w-0">
-                                    <p class="mb-0 text-truncate">
-                                        <span class="fw-medium">{{ $address->label }}</span>
-                                        @if ($address->is_default)
-                                            <span class="badge-amber ms-1">Default</span>
-                                        @endif
-                                    </p>
-                                    <p class="mb-0 text-dim small text-truncate">
-                                        {{ $address->line1 }} &middot;
-                                        {{ collect([$address->city, $address->state])->filter()->join(', ') }}
-                                    </p>
-                                </div>
+                    <a href="{{ route('rbac.index') }}" class="btn btn-outline-secondary btn-sm text-nowrap">
+                        <i class="bi bi-shield-lock"></i> <span class="ms-1">Manage roles</span>
+                    </a>
+                </div>
 
-                                <span class="text-faint small text-nowrap">{{ $address->user?->name }}</span>
-                            </div>
-                        @empty
-                            <p class="panel__body text-dim mb-0">No addresses on file yet.</p>
-                        @endforelse
+                <div class="panel__body">
+                    <div class="access-row">
+                        <span class="text-dim small">Users</span>
+                        <span class="fw-medium">{{ number_format($access['users']) }}</span>
+                    </div>
+                    <div class="access-row">
+                        <span class="text-dim small">Roles</span>
+                        <span class="fw-medium">{{ number_format($access['roles']) }}</span>
+                    </div>
+                    <div class="access-row">
+                        <span class="text-dim small">Permissions</span>
+                        <span class="fw-medium">{{ number_format($access['permissions']) }}</span>
                     </div>
                 </div>
+            </div>
+        @endif
+
+        <div class="row g-4">
+            <div class="col-lg-7">
+                @if ($chart !== null)
+                    {{-- Whoever reads the whole directory. The Customer falls
+                         through to the Recent list below, which says more about
+                         eight addresses than a chart of where those eight sit.
+                         Tested against null rather than truthiness: a reader
+                         with nothing on file gets an empty array, and that
+                         should still be the chart panel, not Recent. --}}
+                    <div class="panel h-100">
+                        <div class="panel__head">
+                            <div>
+                                <p class="eyebrow mb-1">By region</p>
+                                <p class="mb-0 text-dim small">
+                                    {{ $seesEveryAddress ? 'Every address on file' : 'Your own addresses' }},
+                                    ranked by how many sit in each region.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="panel__body">
+                            {{-- The figures are small enough to travel in the
+                                 markup, so there is no second endpoint to
+                                 authenticate and no second request to wait on. --}}
+                            <div class="chart skeleton-host is-loading"
+                                 data-region-chart
+                                 data-points="{{ json_encode($chart) }}">
+                                <canvas aria-hidden="true"></canvas>
+                                <div class="skeleton-overlay skeleton-overlay--chart" aria-hidden="true">
+                                    <div class="skeleton skeleton--row" style="width: 88%"></div>
+                                    <div class="skeleton skeleton--row mt-3" style="width: 74%"></div>
+                                    <div class="skeleton skeleton--row mt-3" style="width: 81%"></div>
+                                    <div class="skeleton skeleton--row mt-3" style="width: 62%"></div>
+                                    <div class="skeleton skeleton--row mt-3" style="width: 70%"></div>
+                                </div>
+                            </div>
+
+                            {{-- A canvas reads as nothing to a screen reader, so
+                                 the same figures are repeated as text. --}}
+                            <ul class="visually-hidden">
+                                @foreach ($chart as $row)
+                                    <li>{{ $row['label'] }}: {{ $row['value'] }} {{ Str::plural('address', $row['value']) }}</li>
+                                @endforeach
+                            </ul>
+                        </div>
+                    </div>
+                @else
+                    {{-- The Customer's column. Was the six most recent addresses,
+                         which said nothing the address table does not already say;
+                         asking an administrator for a change is the one thing this
+                         role does that no other screen on the dashboard mentions. --}}
+                    <div class="panel h-100">
+                        <div class="panel__head">
+                            <div>
+                                <p class="eyebrow mb-1">Your requests</p>
+                                <p class="mb-0 text-dim small">
+                                    @if ($waitingOnADecision > 0)
+                                        {{ $waitingOnADecision }} waiting on a decision.
+                                    @else
+                                        What you have asked an administrator to change.
+                                    @endif
+                                </p>
+                            </div>
+
+                            <a href="{{ route('requests.index') }}" class="btn btn-outline-secondary btn-sm text-nowrap">
+                                Open requests
+                            </a>
+                        </div>
+
+                        <div class="panel__body panel__body--flush">
+                            @forelse ($myRequests as $change)
+                                <div class="recent-row">
+                                    <div class="min-w-0">
+                                        <p class="mb-0 text-truncate">
+                                            <span class="badge badge-soft">{{ Str::headline($change->type) }}</span>
+                                            <span class="fw-medium ms-1">{{ $change->subjectLabel() }}</span>
+                                        </p>
+                                        <p class="mb-0 text-dim small text-truncate">
+                                            @if ($change->isPending())
+                                                Waiting since {{ $change->created_at->diffForHumans() }}
+                                            @else
+                                                {{ Str::headline($change->status) }}
+                                                {{ $change->decided_at?->diffForHumans() }}
+                                                @if ($change->decision_note)
+                                                    &middot; &ldquo;{{ Str::limit($change->decision_note, 60) }}&rdquo;
+                                                @endif
+                                            @endif
+                                        </p>
+                                    </div>
+
+                                    <span class="text-faint small text-nowrap">
+                                        {{ $change->decider?->name ?? $change->user?->name }}
+                                    </span>
+                                </div>
+                            @empty
+                                <p class="text-dim small p-4 mb-0">
+                                    You have not asked for a change yet.
+                                </p>
+                            @endforelse
+                        </div>
+                    </div>
+                @endif
             </div>
 
             <div class="col-lg-5">
                 <div class="panel h-100">
                     <div class="panel__head">
                         <div>
-                            {{-- Admin pins the whole book, so the panel is named for
-                                 what is on it rather than for the viewer. --}}
+                            {{-- A directory-wide reader pins the whole book, so
+                                 the panel is named for what is on it rather than
+                                 for the person reading it. --}}
                             <p class="eyebrow mb-1">{{ $seesEveryAddress ? 'User locations' : 'Your locations' }}</p>
                             {{-- The map shows which addresses are pinned; this line
                                  is the one fact it cannot: how many are not.
@@ -125,36 +229,6 @@
                     </div>
                 </div>
 
-                @if ($access)
-                    {{-- Admin only: the same permission that opens /rbac gates this. --}}
-                    <div class="panel mt-4">
-                        <div class="panel__head">
-                            <div>
-                                <p class="eyebrow mb-1">Access</p>
-                                <p class="mb-0 text-dim small">Everything the permission system currently holds.</p>
-                            </div>
-                        </div>
-
-                        <div class="panel__body">
-                            <div class="access-row">
-                                <span class="text-dim small">Users</span>
-                                <span class="fw-medium">{{ number_format($access['users']) }}</span>
-                            </div>
-                            <div class="access-row">
-                                <span class="text-dim small">Roles</span>
-                                <span class="fw-medium">{{ number_format($access['roles']) }}</span>
-                            </div>
-                            <div class="access-row">
-                                <span class="text-dim small">Permissions</span>
-                                <span class="fw-medium">{{ number_format($access['permissions']) }}</span>
-                            </div>
-
-                            <a href="{{ route('rbac.index') }}" class="btn btn-outline-secondary btn-sm mt-3">
-                                <i class="bi bi-shield-lock"></i> <span class="ms-1">Manage roles</span>
-                            </a>
-                        </div>
-                    </div>
-                @endif
             </div>
         </div>
     @endif

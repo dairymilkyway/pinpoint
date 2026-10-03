@@ -81,9 +81,12 @@ by a device-emulated screenshot.
 - [x] An address with coordinates renders a Leaflet pin on OpenStreetMap
 - [x] No API key, no live external geocoding call at request time
 
-The pin criterion is only observable on rows that have coordinates. Manila,
-Makati and Quezon City have no coordinates in the sourced dataset and so
-produce no pin; they remain selectable in the dropdowns. This is recorded in
+The pin criterion is only observable on rows that have coordinates. As written,
+Manila, Makati and Quezon City had none in the sourced dataset and so produced
+no pin; they remained selectable in the dropdowns. That gap was closed on
+2026-10-03 by keying each Metro Manila city to its own central post office row,
+so the capital pins at last. Taguig and Pateros have no such row and still
+produce no pin. Both the aliases and the remaining gap are recorded in
 `resources/data/README.md`.
 
 ### 5. Regression

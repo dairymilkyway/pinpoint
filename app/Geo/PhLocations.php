@@ -209,7 +209,7 @@ final class PhLocations
     /** @return list<array<string, mixed>> */
     private static function read(string $file): array
     {
-        $path = dirname(__DIR__, 2) . '/resources/data/' . $file;
+        $path = dirname(__DIR__, 2).'/resources/data/'.$file;
 
         if (! is_file($path)) {
             throw new RuntimeException("Bundled geo dataset missing: {$path}");

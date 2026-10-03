@@ -20,9 +20,29 @@ class AddressDataTable extends DataTable
      */
     protected array $actions = ['excel'];
 
+    /** Set when the table is showing one owner's addresses rather than the book. */
+    private ?User $owner = null;
+
+    /**
+     * Narrow the table to a single owner. It is the same builder the directory
+     * uses with one more where, so the export, the search and the counts all
+     * follow without a second scoping rule.
+     */
+    public function forUser(User $user): static
+    {
+        $this->owner = $user;
+
+        return $this;
+    }
+
+    private function scopedToOwner(): bool
+    {
+        return $this->owner !== null;
+    }
+
     public function dataTable(QueryBuilder $query): EloquentDataTable
     {
-        return (new EloquentDataTable($query))
+        $table = (new EloquentDataTable($query))
             ->editColumn('is_default', fn (Address $address) => $address->is_default
                 ? '<span class="badge text-bg-success">Default</span>'
                 : '<span class="badge text-bg-light text-muted">No</span>')
@@ -30,16 +50,25 @@ class AddressDataTable extends DataTable
                 'addresses.partials.actions',
                 ['address' => $address],
             )->render())
-            ->addColumn('owner', fn (Address $address) => $address->user?->name ?? '-')
             ->rawColumns(['is_default', 'actions'])
-            ->filterColumn('owner', function (QueryBuilder $query, string $keyword) {
-                $query->whereHas('user', fn ($q) => $q->where('name', 'like', "%{$keyword}%"));
-            })
-            ->orderColumn('owner', fn (QueryBuilder $query, string $order) => $query->orderBy(
-                User::select('name')->whereColumn('users.id', 'addresses.user_id'),
-                $order,
-            ))
             ->setRowId('id');
+
+        // An addColumn value rides along in the row payload whether or not the
+        // column is declared, so scoping has to skip building it at all rather
+        // than just leaving it out of getColumns().
+        if (! $this->scopedToOwner()) {
+            $table
+                ->addColumn('owner', fn (Address $address) => $address->user?->name ?? '-')
+                ->filterColumn('owner', function (QueryBuilder $query, string $keyword) {
+                    $query->whereHas('user', fn ($q) => $q->where('name', 'like', "%{$keyword}%"));
+                })
+                ->orderColumn('owner', fn (QueryBuilder $query, string $order) => $query->orderBy(
+                    User::select('name')->whereColumn('users.id', 'addresses.user_id'),
+                    $order,
+                ));
+        }
+
+        return $table;
     }
 
     /**
@@ -50,6 +79,7 @@ class AddressDataTable extends DataTable
     {
         return $model->newQuery()
             ->with('user')
+            ->when($this->owner, fn (QueryBuilder $query) => $query->where('user_id', $this->owner->id))
             ->visibleTo($this->request()->user());
     }
 
@@ -59,7 +89,8 @@ class AddressDataTable extends DataTable
             ->setTableId('addresses-table')
             ->columns($this->getColumns())
             ->minifiedAjax()
-            ->orderBy(1)
+            // Label, whichever index it lands on once the Owner column is in or out.
+            ->orderBy($this->scopedToOwner() ? 0 : 1)
             ->lengthMenu([10, 25, 50, 100])
             ->dom('Bfrtip')
             // DataTables 2 ignores the dom string for its indicator and injects a
@@ -94,8 +125,14 @@ class AddressDataTable extends DataTable
 
     protected function getColumns(): array
     {
+        // Scoped to one owner, an Owner column would repeat the same name on
+        // every row, so it is dropped rather than filled with a constant.
+        $owner = $this->scopedToOwner()
+            ? []
+            : [Column::make('owner')->title('Owner')];
+
         return [
-            Column::make('owner')->title('Owner'),
+            ...$owner,
             Column::make('label'),
             Column::make('line1')->title('Address'),
             Column::make('city'),

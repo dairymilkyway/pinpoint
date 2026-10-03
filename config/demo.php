@@ -10,7 +10,7 @@ return [
     |--------------------------------------------------------------------------
     |
     | Renders a list of ready-made accounts on the sign-in page so a reviewer
-    | can move between the Admin, Manager and Viewer roles without typing
+    | can move between the Superadmin, Admin and Customer roles without typing
     | credentials. This exists for a showcase and is off unless explicitly
     | switched on; DemoLogin::enabled() also refuses it outright whenever
     | APP_ENV is production, so turning it on by accident cannot expose a
@@ -26,19 +26,19 @@ return [
 
     'accounts' => [
         [
-            'role' => Rbac::ADMIN_ROLE,
+            'role' => Rbac::SUPERADMIN_ROLE,
             'name' => 'Ana Reyes',
             'email' => env('SEED_ADMIN_EMAIL'),
             'password' => env('SEED_ADMIN_PASSWORD'),
         ],
         [
-            'role' => Rbac::MANAGER_ROLE,
+            'role' => Rbac::ADMIN_ROLE,
             'name' => 'Miguel Santos',
             'email' => env('SEED_MANAGER_EMAIL', 'manager@example.com'),
             'password' => env('SEED_DEMO_PASSWORD'),
         ],
         [
-            'role' => Rbac::VIEWER_ROLE,
+            'role' => Rbac::CUSTOMER_ROLE,
             'name' => 'Liza Mendoza',
             'email' => env('SEED_VIEWER_EMAIL', 'viewer@example.com'),
             'password' => env('SEED_DEMO_PASSWORD'),
@@ -46,7 +46,7 @@ return [
     ],
 
     /*
-    | Shared password for everything below the picker: the Manager and Viewer
+    | Shared password for everything below the picker: the Admin and Customer
     | accounts, and the extra owners. Kept here rather than read with env() in
     | the seeder so it survives config caching.
     */

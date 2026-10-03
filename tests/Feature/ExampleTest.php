@@ -39,7 +39,7 @@ class ExampleTest extends TestCase
 
     public function test_an_authenticated_user_is_forwarded_to_the_dashboard(): void
     {
-        $user = User::factory()->create()->assignRole('Viewer');
+        $user = User::factory()->create()->assignRole('Customer');
 
         $this->actingAs($user)
             ->get('/')

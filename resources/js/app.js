@@ -4,6 +4,8 @@ import '@fontsource-variable/jetbrains-mono';
 
 import './bootstrap';
 
+import { Modal } from 'bootstrap';
+
 import 'datatables.net-bs5';
 import 'datatables.net-buttons-bs5';
 import './buttons.server-side';
@@ -29,6 +31,20 @@ if (mapElement) {
         skeleton.hide(mapElement);
         mapElement.classList.add('map--failed');
         mapElement.textContent = 'Could not load the map.';
+    });
+}
+
+// The dashboard's region chart. chart.js is the largest dependency after
+// Leaflet and only two of the three roles draw it, so it is fetched on demand
+// alongside the map rather than shipped to every visitor.
+const chartElement = document.querySelector('[data-region-chart]');
+
+if (chartElement) {
+    import('./chart').catch(() => {
+        // Without this the panel would shimmer forever if the chunk 404s.
+        chartElement.classList.remove('is-loading');
+        chartElement.classList.add('chart--failed');
+        chartElement.textContent = 'Could not load the chart.';
     });
 }
 
@@ -59,23 +75,61 @@ if (progress) {
     });
 }
 
-// The addresses table is rendered over ajax, so the delete buttons only exist
-// after a draw. One shared modal is re-pointed at whichever row was clicked.
+// The addresses table is rendered over ajax, so the delete and request buttons
+// only exist after a draw. Each modal is re-pointed at whichever row was
+// clicked, and each declares the elements that get filled rather than naming
+// them here - so adding a second modal costs no JavaScript.
 document.addEventListener('DOMContentLoaded', () => {
-    const modal = document.getElementById('deleteAddressModal');
+    document.querySelectorAll('[data-row-modal]').forEach((modal) => {
+        modal.addEventListener('show.bs.modal', (event) => {
+            const trigger = event.relatedTarget;
 
-    if (!modal) {
+            if (!trigger) {
+                return;
+            }
+
+            const form = modal.querySelector(modal.dataset.formTarget);
+            const label = modal.querySelector(modal.dataset.labelTarget);
+            const value = modal.querySelector(modal.dataset.valueTarget);
+
+            if (form && trigger.dataset.rowAction) {
+                form.action = trigger.dataset.rowAction;
+            }
+
+            if (label) {
+                label.textContent = trigger.dataset.rowLabel ?? '';
+            }
+
+            if (value) {
+                value.value = trigger.dataset.rowValue ?? '';
+            }
+        });
+    });
+});
+
+// A refusal is confirmed in a modal of its own rather than in a panel that
+// unfolds inside the review modal. The two are siblings that take turns: the
+// first is hidden, and the second opens once it has gone. A modal opened from
+// inside a modal strands the first one's backdrop over the page, so this is a
+// swap rather than a stack.
+//
+// Symmetric on purpose - stepping back to the proposal is the same click as
+// leaving it, so a reader who opens the reason and changes their mind lands back
+// on what they were reading.
+document.addEventListener('click', (event) => {
+    const trigger = event.target.closest?.('[data-modal-swap]');
+
+    if (!trigger) {
         return;
     }
 
-    modal.addEventListener('show.bs.modal', (event) => {
-        const trigger = event.relatedTarget;
+    const from = document.getElementById(trigger.dataset.modalSwapFrom);
+    const to = document.getElementById(trigger.dataset.modalSwap);
 
-        if (!trigger) {
-            return;
-        }
+    if (!from || !to) {
+        return;
+    }
 
-        modal.querySelector('#deleteAddressForm').action = trigger.dataset.deleteAction;
-        modal.querySelector('#deleteAddressLabel').textContent = trigger.dataset.deleteLabel;
-    });
+    from.addEventListener('hidden.bs.modal', () => Modal.getOrCreateInstance(to).show(), { once: true });
+    Modal.getOrCreateInstance(from).hide();
 });

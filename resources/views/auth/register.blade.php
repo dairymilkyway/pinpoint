@@ -12,7 +12,7 @@
                 </a>
 
                 <h1 class="auth-card__title">Create an account</h1>
-                <p class="auth-card__sub">You will start with no role assigned. An admin grants access.</p>
+                <p class="auth-card__sub">You start with the Customer role, which sees only the addresses you add. A Superadmin can widen it.</p>
             </div>
 
             <form method="POST" action="{{ route('register') }}">

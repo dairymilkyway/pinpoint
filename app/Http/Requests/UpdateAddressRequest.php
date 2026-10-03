@@ -2,8 +2,6 @@
 
 namespace App\Http\Requests;
 
-use App\Models\Address;
-
 class UpdateAddressRequest extends StoreAddressRequest
 {
     public function authorize(): bool

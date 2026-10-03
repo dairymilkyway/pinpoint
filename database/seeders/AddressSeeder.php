@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\Address;
 use App\Models\User;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Collection;
 
 class AddressSeeder extends Seeder
 {
@@ -18,7 +19,7 @@ class AddressSeeder extends Seeder
      */
     public function run(): void
     {
-        $owners = User::query()->get();
+        $owners = $this->owners();
 
         if ($owners->isEmpty()) {
             return;
@@ -33,6 +34,32 @@ class AddressSeeder extends Seeder
 
             $this->ensureSingleDefault($owner);
         }
+    }
+
+    /**
+     * The accounts that hold addresses.
+     *
+     * Both readers are skipped. They read the whole book because of their role,
+     * not because they hold part of it: seeding them with rows made a reader's
+     * own dashboard report owning eight addresses while the cards above it said
+     * every address was visible, and put them in the users list as owners.
+     *
+     * The predicate is seesEveryAddress() rather than a role name. An earlier
+     * version named only the Superadmin and argued the Admin kept its eight rows
+     * to demonstrate that reach comes from the role rather than from ownership.
+     * That argument lost: it made the account labelled Admin an owner of the very
+     * book it manages. The reach-not-ownership point is still made, by a reader
+     * seeing every address while owning none.
+     *
+     * @return Collection<int, User>
+     */
+    private function owners(): Collection
+    {
+        return User::query()
+            ->with('roles')
+            ->get()
+            ->reject(fn (User $user) => $user->seesEveryAddress())
+            ->values();
     }
 
     /** Each owner gets exactly one default address, chosen once. */

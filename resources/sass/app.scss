@@ -189,13 +189,6 @@ a {
     box-shadow: inset 2px 0 0 var(--amber);
 }
 
-.app-nav__index {
-    margin-left: auto;
-    font-family: $font-family-monospace;
-    font-size: 0.6875rem;
-    color: var(--text-faint);
-}
-
 .app-main {
     flex: 1 1 auto;
     min-width: 0;
@@ -271,6 +264,29 @@ a {
     padding: 0;
 }
 
+/* A panel whose body should take the height the panel is given, rather than the
+   height of its own content. Used where a panel shares a row with something
+   whose height it cannot know in advance - the profile map beside a table of
+   unknown length - so the panel stretches and the map fills it. */
+.panel--fill {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.panel--fill .panel__body {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.panel--fill .map {
+    flex: 1 1 auto;
+    height: auto;
+    min-height: 460px;
+}
+
 .stat {
     background-color: var(--ink-900);
     border: 1px solid var(--line);
@@ -285,6 +301,24 @@ a {
     letter-spacing: -0.03em;
     color: #fff;
     font-variant-numeric: tabular-nums;
+}
+
+/* Initials stand in for a photo, which this app has nowhere to store. Sized and
+   weighted to sit level with the name beside it rather than to draw the eye. */
+.avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 2.75rem;
+    height: 2.75rem;
+    border: 1px solid var(--line-strong);
+    border-radius: 50%;
+    background-color: var(--ink-800);
+    color: var(--amber);
+    font-size: 0.875rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
 }
 
 /* ==========================================================================
@@ -837,6 +871,34 @@ a {
     color: var(--text-faint);
     display: block;
     margin-bottom: 0.75rem;
+}
+
+/* ==========================================================================
+   Chart
+   The canvas is sized by its wrapper, which chart.js measures on creation, so
+   the height is set inline by the module once it knows how many bars there are.
+   ========================================================================== */
+
+.chart canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.chart--empty,
+.chart--failed {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 220px;
+    color: var(--text-faint);
+    font-size: 0.9375rem;
+}
+
+/* The generic overlay has no padding of its own; the skeleton rows need the
+   same inset the chart's plot area will have. */
+.skeleton-overlay--chart {
+    padding: 1.25rem;
 }
 
 /* ==========================================================================

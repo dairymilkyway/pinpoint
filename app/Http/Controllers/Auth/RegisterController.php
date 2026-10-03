@@ -69,11 +69,11 @@ class RegisterController extends Controller
         ]);
 
         // Without this a new account holds no permissions at all and lands on a
-        // dashboard it cannot fill. Viewer is the least privileged of the three
+        // dashboard it cannot fill. Customer is the least privileged of the three
         // roles, so this is the smallest grant that makes the account usable.
         // The role comes from RolePermissionSeeder, so an install that has not
         // been seeded fails loudly here rather than silently having no roles.
-        $user->assignRole(Rbac::VIEWER_ROLE);
+        $user->assignRole(Rbac::CUSTOMER_ROLE);
 
         return $user;
     }

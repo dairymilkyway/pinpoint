@@ -23,6 +23,12 @@
         @method($method)
     @endif
 
+    {{-- What the form is for, when that is not simply the address: a request
+         carries its type and the address it is about. --}}
+    @foreach ($hidden ?? [] as $name => $value)
+        <input type="hidden" name="{{ $name }}" value="{{ $value }}">
+    @endforeach
+
     <p class="eyebrow mb-3">Identity</p>
 
     <div class="row g-3 mb-4">
@@ -134,20 +140,40 @@
             @error('country') <div class="invalid-feedback">{{ $message }}</div> @enderror
         </div>
 
-        <div class="col-12">
-            <div class="form-check mt-1">
-                <input type="hidden" name="is_default" value="0">
-                <input type="checkbox" name="is_default" id="is_default" value="1"
-                       class="form-check-input"
-                       @checked(old('is_default', $address->is_default))>
-                <label class="form-check-label" for="is_default">Set as the default address</label>
-                <div class="form-hint">Shown first wherever this owner's addresses are listed.</div>
+        {{-- Hidden on a request form. The default is a marker on the owner's own
+             book with its own immediate action, so letting it ride along in a
+             proposal would mean asking permission for something the Customer can
+             already do without one - and an approved proposal moving a marker
+             they never asked to move. --}}
+        @if ($showDefault ?? true)
+            <div class="col-12">
+                <div class="form-check mt-1">
+                    <input type="hidden" name="is_default" value="0">
+                    <input type="checkbox" name="is_default" id="is_default" value="1"
+                           class="form-check-input"
+                           @checked(old('is_default', $address->is_default))>
+                    <label class="form-check-label" for="is_default">Set as the default address</label>
+                    <div class="form-hint">Shown first wherever this owner's addresses are listed.</div>
+                </div>
+            </div>
+        @endif
+    </div>
+
+    @if ($withNote ?? false)
+        <div class="row g-3 mb-4">
+            <div class="col-12">
+                <label for="note" class="form-label">Why this change?</label>
+                <textarea name="note" id="note" rows="2" maxlength="1000"
+                          class="form-control @error('note') is-invalid @enderror"
+                          placeholder="Anything the reviewer should know.">{{ old('note') }}</textarea>
+                <div class="form-hint">Optional, and shown to whoever reviews it.</div>
+                @error('note') <div class="invalid-feedback">{{ $message }}</div> @enderror
             </div>
         </div>
-    </div>
+    @endif
 
     <div class="d-flex gap-2 pt-3 border-top" style="border-color: var(--line) !important;">
         <button type="submit" class="btn btn-primary px-4">{{ $submitLabel }}</button>
-        <a href="{{ route('addresses.index') }}" class="btn btn-outline-secondary">Cancel</a>
+        <a href="{{ $cancelRoute ?? route('addresses.index') }}" class="btn btn-outline-secondary">Cancel</a>
     </div>
 </form>

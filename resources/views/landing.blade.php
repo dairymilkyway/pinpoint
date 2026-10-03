@@ -49,7 +49,7 @@
                     <p class="feature__index">02</p>
                     <h2 class="feature__title">Real permissions</h2>
                     <p class="feature__body">
-                        Admins, managers and viewers each get the controls they are entitled to.
+                        Superadmins, admins and customers each get the controls they are entitled to.
                         Buttons are hidden and the underlying routes are gated, so a hidden button
                         is never the only thing protecting a record.
                     </p>
@@ -75,9 +75,6 @@
                 </div>
             </div>
 
-            {{-- The public page uses the same bundled datasets as the app, so the
-                 CC BY credit belongs here as much as it does behind the login. --}}
-            @include('partials.attribution', ['class' => 'mt-5'])
         </div>
     </div>
 @endsection

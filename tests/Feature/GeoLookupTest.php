@@ -21,9 +21,9 @@ class GeoLookupTest extends TestCase
         $this->seed(RolePermissionSeeder::class);
     }
 
-    private function admin(): User
+    private function superadmin(): User
     {
-        return User::factory()->create()->assignRole('Admin');
+        return User::factory()->create()->assignRole('Superadmin');
     }
 
     private function cityCodeNamed(string $name): string
@@ -45,7 +45,7 @@ class GeoLookupTest extends TestCase
 
     public function test_the_city_list_returns_cities_for_a_region(): void
     {
-        $response = $this->actingAs($this->admin())
+        $response = $this->actingAs($this->superadmin())
             ->getJson(route('geo.cities', ['region' => '1300000000']))
             ->assertOk()
             ->json();
@@ -56,7 +56,7 @@ class GeoLookupTest extends TestCase
 
     public function test_the_city_list_is_narrowed_by_province(): void
     {
-        $response = $this->actingAs($this->admin())
+        $response = $this->actingAs($this->superadmin())
             ->getJson(route('geo.cities', ['region' => '0700000000', 'province' => '0702200000']))
             ->assertOk()
             ->json();
@@ -72,23 +72,23 @@ class GeoLookupTest extends TestCase
 
     public function test_an_unknown_region_code_is_rejected(): void
     {
-        $this->actingAs($this->admin())
+        $this->actingAs($this->superadmin())
             ->getJson(route('geo.cities', ['region' => '9999999999']))
             ->assertStatus(422);
     }
 
     public function test_an_unknown_province_code_is_rejected(): void
     {
-        $this->actingAs($this->admin())
+        $this->actingAs($this->superadmin())
             ->getJson(route('geo.cities', ['province' => '9999999999']))
             ->assertStatus(422);
     }
 
     public function test_storing_an_address_with_a_city_code_derives_the_rest(): void
     {
-        $admin = $this->admin();
+        $superadmin = $this->superadmin();
 
-        $this->actingAs($admin)
+        $this->actingAs($superadmin)
             ->post(route('addresses.store'), [
                 'label' => 'Head Office',
                 'line1' => '1 Test Street',
@@ -100,7 +100,9 @@ class GeoLookupTest extends TestCase
                 'postal_code' => '0000',
                 'country' => 'Atlantis',
             ])
-            ->assertRedirect(route('addresses.index'))
+            // A reader of the whole book lands on the owner's page, so the
+            // address they just made is on screen.
+            ->assertRedirect(route('addresses.user', $superadmin))
             ->assertSessionHasNoErrors();
 
         $address = Address::sole();
@@ -115,9 +117,41 @@ class GeoLookupTest extends TestCase
         $this->assertNotNull($address->longitude);
     }
 
+    /**
+     * GeoNames keys Metro Manila by postal district and never by city, so the
+     * name-plus-parent join finds nothing and an address in the capital ends up
+     * with no coordinates - and therefore no pin. Each city's own central post
+     * office is the anchor that closes it.
+     */
+    public function test_a_metropolitan_city_is_pinned_from_its_own_post_office(): void
+    {
+        $superadmin = $this->superadmin();
+
+        $this->actingAs($superadmin)
+            ->post(route('addresses.store'), [
+                'label' => 'Head Office',
+                'line1' => '1 Roxas Boulevard',
+                'city_code' => $this->cityCodeNamed('City of Manila'),
+            ])
+            ->assertSessionHasNoErrors();
+
+        $address = Address::sole();
+
+        $this->assertSame('City of Manila', $address->city);
+        // The postal code travels with the coordinates, and 1000 is Manila's.
+        $this->assertSame('1000', $address->postal_code);
+        $this->assertNotNull($address->latitude);
+        $this->assertNotNull($address->longitude);
+
+        $points = $this->actingAs($superadmin)->getJson(route('home.map'))->assertOk()->json();
+
+        $this->assertCount(1, $points);
+        $this->assertSame('Head Office', $points[0]['label']);
+    }
+
     public function test_a_city_in_a_province_records_that_province(): void
     {
-        $this->actingAs($this->admin())
+        $this->actingAs($this->superadmin())
             ->post(route('addresses.store'), [
                 'label' => 'Branch',
                 'line1' => '2 Test Street',
@@ -137,7 +171,7 @@ class GeoLookupTest extends TestCase
 
     public function test_an_unknown_city_code_is_rejected(): void
     {
-        $this->actingAs($this->admin())
+        $this->actingAs($this->superadmin())
             ->post(route('addresses.store'), [
                 'label' => 'Nowhere',
                 'line1' => '3 Test Street',
@@ -152,22 +186,24 @@ class GeoLookupTest extends TestCase
 
     public function test_the_map_only_returns_addresses_that_can_be_pinned(): void
     {
-        $admin = $this->admin();
+        $superadmin = $this->superadmin();
 
         Address::factory()->create([
-            'user_id' => $admin->id,
+            'user_id' => $superadmin->id,
             'latitude' => 10.3167,
             'longitude' => 123.8907,
         ]);
 
         Address::factory()->create([
-            'user_id' => $admin->id,
+            'user_id' => $superadmin->id,
             'latitude' => null,
             'longitude' => null,
         ]);
 
-        $points = $this->actingAs($admin)
-            ->getJson(route('addresses.map'))
+        // The dashboard map is the only one left; the addresses page no longer
+        // carries a map panel, so these follow the pinning rule where it lives.
+        $points = $this->actingAs($superadmin)
+            ->getJson(route('home.map'))
             ->assertOk()
             ->json();
 
@@ -177,6 +213,6 @@ class GeoLookupTest extends TestCase
 
     public function test_the_map_requires_authentication(): void
     {
-        $this->get(route('addresses.map'))->assertRedirect(route('login'));
+        $this->get(route('home.map'))->assertRedirect(route('login'));
     }
 }
