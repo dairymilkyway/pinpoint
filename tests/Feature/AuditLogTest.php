@@ -47,9 +47,10 @@ class AuditLogTest extends TestCase
     {
         $reader = $this->reader();
 
-        $this->actingAs($reader)->post(route('addresses.store'), $this->newPayload([
-            'label' => 'Warehouse',
-        ]))->assertRedirect();
+        $this->actingAs($reader)->post(
+            route('addresses.store', ['user' => $this->customer()->id]),
+            $this->newPayload(['label' => 'Warehouse']),
+        )->assertRedirect();
 
         $log = AuditLog::query()->sole();
 

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Geo\PhLocations;
 use App\Observers\AddressObserver;
 use Database\Factories\AddressFactory;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
@@ -88,6 +89,47 @@ class Address extends Model
         }
 
         return $snapshot;
+    }
+
+    /**
+     * The attributes a city code decides, for every writer that has one.
+     *
+     * The bundled dataset is authoritative for everything it knows, so a caller
+     * cannot pair Cebu's city code with a Manila postal code: the code decides
+     * all of it. Postal is the one exception, because GeoNames has no entry for
+     * some cities - Manila and Makati among them - so where it has nothing the
+     * caller's value is left alone rather than blanked.
+     *
+     * Shared by the create form and the import so the two cannot drift into
+     * accepting different pairings of the same columns.
+     *
+     * @return array<string, mixed>
+     */
+    public static function attributesFromCityCode(string $code): array
+    {
+        $city = PhLocations::find($code);
+
+        if ($city === null) {
+            return [];
+        }
+
+        $geo = PhLocations::coordinatesFor($city['code']) ?? [];
+
+        $attributes = [
+            'city' => $city['name'],
+            'state' => PhLocations::stateFor($city),
+            'country' => 'Philippines',
+            'region_code' => $city['region'],
+            'province_code' => $city['province'],
+            'latitude' => $geo['lat'] ?? null,
+            'longitude' => $geo['lng'] ?? null,
+        ];
+
+        if (filled($geo['postal'] ?? null)) {
+            $attributes['postal_code'] = $geo['postal'];
+        }
+
+        return $attributes;
     }
 
     /**

@@ -15,10 +15,13 @@ class AddressExportTest extends TestCase
     use RefreshDatabase;
 
     /** The directory table, which still carries the Owner column. */
-    private const COLUMNS = ['owner', 'label', 'line1', 'city', 'country', 'is_default', 'actions'];
+    private const COLUMNS = ['owner', 'label', 'line1', 'city', 'country', 'map', 'is_default', 'actions'];
 
-    /** One owner's page, where the Owner column would repeat a single name. */
-    private const SCOPED_COLUMNS = ['label', 'line1', 'city', 'country', 'is_default', 'actions'];
+    /**
+     * One owner's page, where the Owner column would repeat a single name and a
+     * reader also loses Map and Default - see hidesMapAndDefault().
+     */
+    private const SCOPED_COLUMNS = ['label', 'line1', 'city', 'country', 'actions'];
 
     protected function setUp(): void
     {
@@ -49,9 +52,10 @@ class AddressExportTest extends TestCase
 
         $sheet = $this->exportSheet($superadmin, $superadmin, ['search' => ['value' => 'Zzuniqueville']]);
 
-        // The Owner column is gone from the scoped table, so the export has one
-        // column fewer than the directory export used to.
-        $this->assertSame(['Label', 'Address', 'City', 'Country', 'Default'], $sheet[0]);
+        // The export is cut from the same columns the table declares, so the
+        // scoped sheet carries what the scoped page shows: no Owner, and now no
+        // Map or Default either.
+        $this->assertSame(['Label', 'Address', 'City', 'Country'], $sheet[0]);
         $this->assertCount(2, $sheet, 'header row plus exactly one matching address');
 
         $cities = array_column(array_slice($sheet, 1), 2);
@@ -95,6 +99,43 @@ class AddressExportTest extends TestCase
         // city is located by its heading rather than by a fixed index.
         $city = array_search('City', $sheet[0], true);
         $this->assertSame(['Zzmine'], array_column(array_slice($sheet, 1), $city));
+    }
+
+    /**
+     * The map state rides into the export, because the export strips markup and
+     * keeps the text inside the badge. Which is why the pin carries a word and
+     * not only an icon: an icon-only cell would export empty.
+     *
+     * Read on the flat table rather than on an owner's page, which drops the
+     * column - and through a Customer, because a reader of the whole book lands
+     * on the users list, which has no table to export.
+     */
+    public function test_the_export_carries_the_map_state_as_plain_text(): void
+    {
+        Role::findByName('Customer')->givePermissionTo('addresses.export');
+
+        $customer = $this->userWithRole('Customer');
+        Address::factory()->for($customer)->create(['label' => 'Pinned']);
+        Address::factory()->for($customer)->create([
+            'label' => 'Unpinned',
+            'latitude' => null,
+            'longitude' => null,
+        ]);
+
+        $sheet = $this->exportSheet($customer);
+        $map = array_search('Map', $sheet[0], true);
+
+        $this->assertNotFalse($map, 'the export should carry the Map column');
+
+        $label = array_search('Label', $sheet[0], true);
+        $values = [];
+
+        foreach (array_slice($sheet, 1) as $row) {
+            $values[$row[$label]] = $row[$map];
+        }
+
+        $this->assertSame('Pinned', $values['Pinned']);
+        $this->assertSame('No location', $values['Unpinned']);
     }
 
     public function test_export_excludes_the_actions_column(): void

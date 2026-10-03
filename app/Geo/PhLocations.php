@@ -35,6 +35,18 @@ final class PhLocations
     /** @var array<string, array{postal: string, lat: string, lng: string, place: string}>|null */
     private static ?array $coordinates = null;
 
+    /** @var array<string, list<string>>|null normalized official name => city codes */
+    private static ?array $citiesByExactName = null;
+
+    /** @var array<string, list<string>>|null normalized name with its City wrapper removed => city codes */
+    private static ?array $citiesByShortName = null;
+
+    /** @var array<string, array{lat: float, lng: float}>|null province code => centre of the cities in it that GeoNames placed */
+    private static ?array $provinceCentres = null;
+
+    /** @var array<string, array{lat: float, lng: float}>|null region code => centre of the cities in it that GeoNames placed */
+    private static ?array $regionCentres = null;
+
     /** @return array<string, string> region code => name */
     public static function regions(): array
     {
@@ -139,6 +151,97 @@ final class PhLocations
         return array_keys(array_intersect_key(self::cities(), self::coordinateMap()));
     }
 
+    /**
+     * Where to draw a city that has no coordinates of its own: the centre of the
+     * province it sits in, or failing that its region.
+     *
+     * This is not a position for the city and must never be stored as one. It is
+     * the middle of a larger place the city is known to be inside, averaged from
+     * the cities in that place that GeoNames *did* place - so it is a stand-in
+     * that can be drawn, not a measurement. Callers are expected to mark it as
+     * approximate wherever a person can see it.
+     *
+     * Deliberately not "the nearest known place": nothing here knows where a
+     * city without coordinates is, so there is no distance to measure from. The
+     * coarser parent is the only thing that is actually known.
+     *
+     * Null when the city is not in the dataset, when it already has coordinates,
+     * or when nothing in its province or region was placed either.
+     *
+     * @return array{lat: float, lng: float}|null
+     */
+    public static function approximateFor(?string $cityCode): ?array
+    {
+        if ($cityCode === null || self::coordinatesFor($cityCode) !== null) {
+            return null;
+        }
+
+        $city = self::find($cityCode);
+
+        if ($city === null) {
+            return null;
+        }
+
+        self::indexCentres();
+
+        $centre = $city['province'] !== null
+            ? (self::$provinceCentres[$city['province']] ?? null)
+            : null;
+
+        return $centre ?? self::$regionCentres[$city['region']] ?? null;
+    }
+
+    /**
+     * Averages each province and each region from the cities inside it that have
+     * coordinates. Built once, on the first city that needs one.
+     */
+    private static function indexCentres(): void
+    {
+        if (self::$provinceCentres !== null) {
+            return;
+        }
+
+        self::$provinceCentres = [];
+        self::$regionCentres = [];
+
+        // province or region code => [lat sum, lng sum, how many]
+        $provinces = [];
+        $regions = [];
+
+        foreach (self::cities() as $code => $city) {
+            $geo = self::coordinatesFor($code);
+
+            if ($geo === null) {
+                continue;
+            }
+
+            $lat = (float) $geo['lat'];
+            $lng = (float) $geo['lng'];
+
+            if (filled($city['province'])) {
+                $provinces[$city['province']] ??= [0.0, 0.0, 0];
+                $provinces[$city['province']][0] += $lat;
+                $provinces[$city['province']][1] += $lng;
+                $provinces[$city['province']][2]++;
+            }
+
+            if (filled($city['region'])) {
+                $regions[$city['region']] ??= [0.0, 0.0, 0];
+                $regions[$city['region']][0] += $lat;
+                $regions[$city['region']][1] += $lng;
+                $regions[$city['region']][2]++;
+            }
+        }
+
+        foreach ($provinces as $key => [$lat, $lng, $count]) {
+            self::$provinceCentres[$key] = ['lat' => $lat / $count, 'lng' => $lng / $count];
+        }
+
+        foreach ($regions as $key => [$lat, $lng, $count]) {
+            self::$regionCentres[$key] = ['lat' => $lat / $count, 'lng' => $lng / $count];
+        }
+    }
+
     public static function regionName(?string $code): ?string
     {
         return $code === null ? null : (self::regions()[$code] ?? null);
@@ -152,6 +255,65 @@ final class PhLocations
     public static function cityName(?string $code): ?string
     {
         return $code === null ? null : (self::cities()[$code]['name'] ?? null);
+    }
+
+    /**
+     * The cities a name could mean, keyed by code - for a caller holding what
+     * somebody typed rather than the ten-digit key.
+     *
+     * The dataset carries the official form, "City of Manila" and "Quezon City",
+     * which is not how anyone writes a city in a spreadsheet, so the comparison
+     * ignores case and the tilde. Failing that it ignores the wrapper too. The
+     * official form is tried first and wins outright: "Quezon City" is one city,
+     * while the stripped form alone would also collect the six municipalities
+     * called Quezon.
+     *
+     * An empty array means the dataset has no such city. More than one entry
+     * means the name is real but belongs to several places - 114 names here do -
+     * and resolving that is the caller's business, not a silent pick.
+     *
+     * A qualifier narrows the result to the province, or failing that the region,
+     * a reader named alongside it. It cannot widen a result: a name the dataset
+     * does not have stays absent however it is qualified.
+     *
+     * @return array<string, array{code: string, name: string, region: ?string, province: ?string, class: string}>
+     */
+    public static function citiesNamed(string $name, ?string $qualifier = null): array
+    {
+        $wanted = self::normalizePlaceName($name);
+
+        if ($wanted === '') {
+            return [];
+        }
+
+        self::indexNames();
+
+        // Both sides of the comparison lose the wrapper: the dataset name was
+        // indexed under its short form, and the name that came in may carry the
+        // wrapper in the other order - "Cebu City" against "City of Cebu".
+        $exact = self::$citiesByExactName[$wanted] ?? [];
+        $short = self::$citiesByShortName[self::normalizePlaceName(self::stripCityAffix($name))] ?? [];
+
+        // Unqualified, the official form wins outright, so "Quezon City" stays
+        // one city instead of joining the six municipalities called Quezon.
+        // Qualified, both pools are in play, because the qualifier is what does
+        // the choosing: "San Juan, National Capital Region" means the City of
+        // San Juan, which only the short form carries.
+        $codes = $qualifier === null
+            ? ($exact !== [] ? $exact : $short)
+            : array_values(array_unique([...$exact, ...$short]));
+
+        $out = [];
+
+        foreach ($codes as $code) {
+            $city = self::cities()[$code];
+
+            if ($qualifier === null || self::isInPlace($city, $qualifier)) {
+                $out[$code] = $city;
+            }
+        }
+
+        return $out;
     }
 
     /**
@@ -191,6 +353,74 @@ final class PhLocations
     public static function stateFor(array $city): ?string
     {
         return self::provinceName($city['province']) ?? self::regionLabel($city['region']);
+    }
+
+    /**
+     * Builds both name indexes once. Two of them, not one, because the official
+     * form has to outrank the shortened one - see citiesNamed().
+     */
+    private static function indexNames(): void
+    {
+        if (self::$citiesByExactName !== null) {
+            return;
+        }
+
+        self::$citiesByExactName = [];
+        self::$citiesByShortName = [];
+
+        foreach (self::cities() as $code => $city) {
+            self::$citiesByExactName[self::normalizePlaceName($city['name'])][] = $code;
+
+            $short = self::normalizePlaceName(self::stripCityAffix($city['name']));
+
+            if ($short !== '') {
+                self::$citiesByShortName[$short][] = $code;
+            }
+        }
+    }
+
+    /** Whether a city sits in the province, or failing that the region, named. */
+    private static function isInPlace(array $city, string $qualifier): bool
+    {
+        $wanted = self::normalizePlaceName($qualifier);
+
+        $labels = [
+            self::stateFor($city),
+            self::provinceName($city['province']),
+            self::regionLabel($city['region']),
+        ];
+
+        foreach ($labels as $label) {
+            if ($label !== null && self::normalizePlaceName($label) === $wanted) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /** The official name with the "City of " / " City" wrapper removed. */
+    private static function stripCityAffix(string $name): string
+    {
+        $name = preg_replace('/^city of\s+/i', '', trim($name));
+
+        return (string) preg_replace('/\s+city$/i', '', (string) $name);
+    }
+
+    /**
+     * A place name reduced to what a reader would type: lower case, no accents,
+     * single spaces.
+     *
+     * The tilde is the only accent in 1642 city names, 18 of them, so the map is
+     * written out rather than transliterating the whole Unicode range for one
+     * character.
+     */
+    private static function normalizePlaceName(string $name): string
+    {
+        $name = str_replace(['ñ', 'Ñ'], 'n', $name);
+        $name = mb_strtolower(trim($name), 'UTF-8');
+
+        return trim((string) preg_replace('/\s+/', ' ', $name));
     }
 
     /** @return array<string, array{postal: string, lat: string, lng: string, place: string}> */

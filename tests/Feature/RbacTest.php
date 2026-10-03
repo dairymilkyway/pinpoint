@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Rbac;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
@@ -144,6 +145,121 @@ class RbacTest extends TestCase
             '/name="permissions\[Superadmin\]\[\]"\s+value="addresses\.view"(?![^>]*disabled)/',
             $html,
         );
+    }
+
+    public function test_every_permission_has_a_readable_label(): void
+    {
+        // The matrix falls back to the machine name when a permission has no
+        // label, so a gap here would not fail - it would quietly put
+        // "addresses.create" back on the screen. This is what makes that
+        // fallback unreachable rather than merely unlikely.
+        $this->assertSame(
+            [],
+            array_diff(Rbac::PERMISSIONS, array_keys(Rbac::LABELS)),
+            'a permission has no label',
+        );
+
+        // And the other direction: a label naming a permission that no longer
+        // exists is dead weight that reads as though it were live.
+        $this->assertSame(
+            [],
+            array_diff(array_keys(Rbac::LABELS), Rbac::PERMISSIONS),
+            'a label names no permission',
+        );
+    }
+
+    public function test_an_unlabelled_permission_falls_back_to_its_machine_name(): void
+    {
+        $this->assertSame('addresses.archive', Rbac::label('addresses.archive'));
+    }
+
+    public function test_the_matrix_shows_the_readable_label_beside_the_machine_name(): void
+    {
+        $html = $this->actingAs($this->userWithRole('Superadmin'))
+            ->get(route('rbac.index'))->assertOk()->getContent();
+
+        // The label is what a reader decides on, the machine name is what they
+        // match against a constant or a denied policy check. Both stay.
+        $this->assertStringContainsString('Create addresses', $html);
+        $this->assertStringContainsString('addresses.create', $html);
+        // Escaped, because Blade writes the ampersand as an entity and this
+        // assertion reads the raw HTML rather than assertSee's escaped search.
+        $this->assertStringContainsString('Manage roles &amp; permissions', $html);
+
+        // A checkbox with a role name and a machine name for an accessible name
+        // is read aloud as jargon, so the label is what goes in.
+        $this->assertStringContainsString('aria-label="Create addresses for Superadmin"', $html);
+    }
+
+    public function test_the_address_labels_read_alphabetically_in_the_order_the_matrix_draws_them(): void
+    {
+        // The matrix sorts by machine name, so the column only reads in order if
+        // every label leads with its verb. "Addresses: create" would render the
+        // same rows shuffled, which is the reason the labels are phrased the way
+        // they are. Checked per resource group: audit.view and rbac.manage are
+        // their own single-row groups and follow on, so the column as a whole is
+        // grouped by resource rather than globally alphabetical.
+        $labels = Permission::orderBy('name')->get()
+            ->filter(fn (Permission $permission): bool => str_starts_with($permission->name, 'addresses.'))
+            ->map(fn (Permission $permission): string => Rbac::label($permission->name))
+            ->values()
+            ->all();
+
+        $sorted = $labels;
+        sort($sorted);
+
+        $this->assertSame($sorted, $labels);
+    }
+
+    public function test_the_matrix_locks_rbac_manage_on_every_column(): void
+    {
+        $html = $this->actingAs($this->userWithRole('Superadmin'))
+            ->get(route('rbac.index'))->assertOk()->getContent();
+
+        // Every column, not only the Superadmin's. It was tickable on the other
+        // two, and the box gates the page it is drawn on.
+        foreach (['Superadmin', 'Admin', 'Customer'] as $role) {
+            $this->assertMatchesRegularExpression(
+                '/name="permissions\['.$role.'\]\[\]"\s+value="rbac\.manage"[^>]*disabled/',
+                $html,
+                "rbac.manage is not locked on the {$role} column",
+            );
+        }
+
+        // Checked for the one role that holds it, unchecked for the rest, so the
+        // display matches what the controller enforces.
+        $this->assertMatchesRegularExpression(
+            '/name="permissions\[Superadmin\]\[\]"\s+value="rbac\.manage"[^>]*checked/',
+            $html,
+        );
+        $this->assertMatchesRegularExpression(
+            '/name="permissions\[Customer\]\[\]"\s+value="rbac\.manage"(?![^>]*checked)/',
+            $html,
+        );
+    }
+
+    public function test_rbac_manage_cannot_be_granted_to_another_role(): void
+    {
+        // Posted directly, the way a hand-made request would, because the box is
+        // disabled and a disabled control is not what the rule rests on.
+        $this->actingAs($this->userWithRole('Superadmin'))
+            ->post(route('rbac.permissions'), $this->matrix(
+                ['addresses.view', 'rbac.manage'],
+                ['addresses.view', 'rbac.manage'],
+            ))
+            ->assertRedirect();
+
+        // Holding it is what lets a role open this page and grant itself the
+        // rest, so neither may keep it.
+        $this->assertFalse(Role::findByName('Customer')->hasPermissionTo('rbac.manage'));
+        $this->assertFalse(Role::findByName('Admin')->hasPermissionTo('rbac.manage'));
+
+        // And the Superadmin keeps it, or nobody could undo any of this.
+        $this->assertTrue(Role::findByName('Superadmin')->hasPermissionTo('rbac.manage'));
+
+        // The rest of the submission still lands, so stripping it did not take
+        // the other ticks with it.
+        $this->assertTrue(Role::findByName('Customer')->hasPermissionTo('addresses.view'));
     }
 
     public function test_an_unknown_role_is_rejected(): void

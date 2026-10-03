@@ -79,13 +79,20 @@ final class AddressStats
      * The pin payload the map module reads. One definition of the shape, since
      * the page and the endpoint have to agree on it field for field.
      *
+     * A city the coordinate dataset does not carry is drawn at the centre of the
+     * province or region it sits in, and flagged, so the map has no silent holes
+     * without any invented number reaching the database. The flag is what lets
+     * the map draw the difference; a stand-in that looked like a measurement
+     * would be worse than no pin. The stored coordinates stay honest, which is
+     * also why the coverage figures above the map are unchanged by this.
+     *
      * @param  bool  $withOwner  Named on each pin only where there is more than
      *                           one owner on the map to tell apart.
-     * @return array<int, array{label: string, line: string, city: string|null, state: string|null, postal: string|null, owner: string|null, lat: float|string|null, lng: float|string|null}>
+     * @return array<int, array{label: string, line: string, city: string|null, state: string|null, postal: string|null, owner: string|null, lat: float|string, lng: float|string, approximate: bool}>
      */
     public static function mapPoints(Builder $query, bool $withOwner): array
     {
-        $columns = ['label', 'line1', 'line2', 'city', 'state', 'postal_code', 'latitude', 'longitude'];
+        $columns = ['label', 'line1', 'line2', 'city', 'state', 'postal_code', 'latitude', 'longitude', 'city_code'];
 
         if ($withOwner) {
             $columns[] = 'user_id';
@@ -93,19 +100,35 @@ final class AddressStats
 
         return (clone $query)
             ->when($withOwner, fn (Builder $q) => $q->with('user:id,name'))
-            ->whereNotNull('latitude')
-            ->whereNotNull('longitude')
             ->get($columns)
-            ->map(fn (Address $address) => [
-                'label' => $address->label,
-                'line' => trim($address->line1.($address->line2 ? ', '.$address->line2 : '')),
-                'city' => $address->city,
-                'state' => $address->state,
-                'postal' => $address->postal_code,
-                'owner' => $withOwner ? $address->user?->name : null,
-                'lat' => $address->latitude,
-                'lng' => $address->longitude,
-            ])
+            ->map(function (Address $address) use ($withOwner): ?array {
+                $pinned = $address->hasCoordinates();
+
+                $position = $pinned
+                    ? ['lat' => $address->latitude, 'lng' => $address->longitude]
+                    : PhLocations::approximateFor($address->city_code);
+
+                // Nothing to draw it at and nothing to approximate from: a
+                // free-text address, or a city with no placed neighbours. It is
+                // absent from the map, which the table now says outright.
+                if ($position === null) {
+                    return null;
+                }
+
+                return [
+                    'label' => $address->label,
+                    'line' => trim($address->line1.($address->line2 ? ', '.$address->line2 : '')),
+                    'city' => $address->city,
+                    'state' => $address->state,
+                    'postal' => $address->postal_code,
+                    'owner' => $withOwner ? $address->user?->name : null,
+                    'lat' => $position['lat'],
+                    'lng' => $position['lng'],
+                    'approximate' => ! $pinned,
+                ];
+            })
+            ->filter()
+            ->values()
             ->all();
     }
 }

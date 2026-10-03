@@ -18,42 +18,18 @@ class StoreAddressRequest extends FormRequest
      * When a city code is supplied, the bundled dataset becomes authoritative
      * for everything it knows.
      *
-     * Deriving the values here rather than trusting the submitted ones is what
-     * makes the address lookup real: a client cannot pair Cebu's city code with
-     * a Manila postal code, because the code decides all of it. An address with
-     * no city code still takes the free-text path, so the existing behaviour and
-     * its tests are untouched.
-     *
-     * The postal code is the one exception. GeoNames has no postal entry for
-     * some cities - Manila and Makati among them - so when it has nothing, the
-     * submitted value is left alone instead of being blanked.
+     * Derived here rather than validated and trusted, which is what makes the
+     * address lookup real: a client cannot pair Cebu's city code with a Manila
+     * postal code, because the code decides all of it. An address with no city
+     * code still takes the free-text path, so the existing behaviour and its
+     * tests are untouched.
      */
     protected function prepareForValidation(): void
     {
         $this->merge(['is_default' => $this->boolean('is_default')]);
 
-        $city = $this->filled('city_code')
-            ? PhLocations::find((string) $this->input('city_code'))
-            : null;
-
-        if ($city === null) {
-            return;
-        }
-
-        $geo = PhLocations::coordinatesFor($city['code']) ?? [];
-
-        $this->merge([
-            'city' => $city['name'],
-            'state' => PhLocations::stateFor($city),
-            'country' => 'Philippines',
-            'region_code' => $city['region'],
-            'province_code' => $city['province'],
-            'latitude' => $geo['lat'] ?? null,
-            'longitude' => $geo['lng'] ?? null,
-        ]);
-
-        if (filled($geo['postal'] ?? null)) {
-            $this->merge(['postal_code' => $geo['postal']]);
+        if ($this->filled('city_code')) {
+            $this->merge(Address::attributesFromCityCode((string) $this->input('city_code')));
         }
     }
 

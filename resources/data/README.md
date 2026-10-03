@@ -40,17 +40,22 @@ rather than papered over by loosening the matcher:
   Western and Central Visayas. GeoNames predates that and still files those
   cities under the two older regions.
 - GeoNames keys Metro Manila by postal district (`manila cpo ermita`, `diliman`),
-  never by city, so no city row exists to match. The thirteen Metro Manila cities
+  never by city, so no city row exists to match. The fifteen Metro Manila cities
   whose own central post office row is present are keyed to it by hand, so both
   their coordinates and their postal code come from that city's own post office -
   Manila 1000, Quezon City 1100, Makati 1200 and so on.
 
 ### Known gaps
 
-- **154 of the 1642 cities have no coordinates**, so an address in one of them
-  produces no map pin. They are spread across every region - BARMM alone accounts
-  for 40 - and the cause is the same in each: GeoNames has no place row whose name
-  and parent both agree with PSGC, so the join drops it rather than guessing.
+- **154 of the 1642 cities have no coordinates**. They are spread across every
+  region - BARMM alone accounts for 40 - and the cause is the same in each:
+  GeoNames has no place row whose name and parent both agree with PSGC, so the
+  join drops it rather than guessing.
+  Nothing is stored for these: the address row keeps a null latitude, and the
+  coverage figure counts it as unpinned. The map still draws it, at the centre of
+  the province or region it sits in, flagged as approximate - so the gap is
+  visible on the map rather than being a silent hole in it, and no invented
+  coordinate ever reaches the database.
 - **Taguig and Pateros** are the two Metro Manila cities still in that set. The
   other fifteen are pinned from their own central post office, which is the alias
   recorded above. Note that this was not always so: the join alone left all

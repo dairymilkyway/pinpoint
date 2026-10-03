@@ -40,22 +40,57 @@ class AddressDataTable extends DataTable
         return $this->owner !== null;
     }
 
+    /**
+     * Whether the two columns that only speak to the owner are dropped.
+     *
+     * A reader of the whole book is looking at somebody else's profile. The
+     * default marker there is that owner's own business and moving it is theirs
+     * to do, not the reader's. And the pin state is the same fact the Pins panel
+     * beside the table already answers, so as a column it is a second copy of
+     * it. On a Customer's own book both stay.
+     */
+    private function hidesMapAndDefault(): bool
+    {
+        return $this->scopedToOwner() && (bool) $this->request()->user()?->seesEveryAddress();
+    }
+
     public function dataTable(QueryBuilder $query): EloquentDataTable
     {
+        // Which cells hold markup. Collected and set once at the end, because
+        // rawColumns() replaces the list rather than adding to it.
+        $raw = ['actions'];
+
         $table = (new EloquentDataTable($query))
-            ->editColumn('is_default', fn (Address $address) => $address->is_default
-                ? '<span class="badge text-bg-success">Default</span>'
-                : '<span class="badge text-bg-light text-muted">No</span>')
             ->addColumn('actions', fn (Address $address) => view(
                 'addresses.partials.actions',
                 ['address' => $address],
             )->render())
-            ->rawColumns(['is_default', 'actions'])
             ->setRowId('id');
 
         // An addColumn value rides along in the row payload whether or not the
-        // column is declared, so scoping has to skip building it at all rather
-        // than just leaving it out of getColumns().
+        // column is declared, so hiding one has to skip building it at all
+        // rather than just leaving it out of getColumns().
+        if (! $this->hidesMapAndDefault()) {
+            $table
+                ->editColumn('is_default', fn (Address $address) => $address->is_default
+                    ? '<span class="badge text-bg-success">Default</span>'
+                    : '<span class="badge text-bg-light text-muted">No</span>')
+                // The pin carries its state in words as well as in an icon. The icon
+                // alone says nothing to a screen reader, and the export strips the
+                // markup, so an icon-only cell would leave the spreadsheet empty.
+                ->addColumn('map', fn (Address $address) => $address->hasCoordinates()
+                    ? '<span class="badge text-bg-success" title="Shown on the map"><i class="bi bi-geo-alt"></i><span class="visually-hidden">Pinned</span></span>'
+                    : '<span class="badge text-bg-light text-muted" title="The dataset has no coordinates for this city">No location</span>')
+                ->orderColumn('map', fn (QueryBuilder $query, string $order) => $query->orderByRaw(
+                    'latitude IS NULL '.($order === 'desc' ? 'desc' : 'asc'),
+                ));
+
+            $raw[] = 'is_default';
+            $raw[] = 'map';
+        }
+
+        // The Owner column is dropped for the same reason, but by the scope
+        // rather than the viewer: one owner's page would repeat a single name.
         if (! $this->scopedToOwner()) {
             $table
                 ->addColumn('owner', fn (Address $address) => $address->user?->name ?? '-')
@@ -68,7 +103,7 @@ class AddressDataTable extends DataTable
                 ));
         }
 
-        return $table;
+        return $table->rawColumns($raw);
     }
 
     /**
@@ -101,18 +136,59 @@ class AddressDataTable extends DataTable
             ->buttons($this->getButtons());
     }
 
-    /** The export button only exists for users holding addresses.export. */
+    /**
+     * The table's toolbar. Each button is drawn only for a user who may use it,
+     * so a role that can do none of it gets no row at all.
+     */
     protected function getButtons(): array
     {
-        if (! $this->request()->user()?->can('addresses.export')) {
-            return [];
+        $user = $this->request()->user();
+
+        $buttons = [];
+
+        if ($user?->can('addresses.create')) {
+            // Carries the account the table is already showing, so a reader who
+            // opened someone's addresses adds to that account without being
+            // asked whose it is again. Unscoped, the button lands on the picker.
+            $buttons[] = $this->linkButton(
+                route('addresses.create', $this->owner ? ['user' => $this->owner->id] : []),
+                '<i class="bi bi-plus-lg"></i> New address',
+                'btn btn-sm btn-primary',
+            );
+
+            $buttons[] = $this->linkButton(
+                route('addresses.import.create', $this->owner ? ['user' => $this->owner->id] : []),
+                '<i class="bi bi-upload"></i> Import Excel',
+                'btn btn-sm btn-outline-secondary',
+            );
         }
 
-        return [
-            Button::make('excel')
+        if ($user?->can('addresses.export')) {
+            $buttons[] = Button::make('excel')
                 ->className('btn btn-sm btn-outline-success')
-                ->text('<i class="bi bi-file-earmark-excel"></i> Export to Excel'),
-        ];
+                ->text('<i class="bi bi-file-earmark-excel"></i> Export to Excel');
+        }
+
+        return $buttons;
+    }
+
+    /**
+     * A toolbar button that goes somewhere rather than running a DataTables
+     * action.
+     *
+     * The href alone is not enough. DataTables calls preventDefault() on every
+     * click it handles, so an anchor rendered in this row looks right and is
+     * inert; the action is what performs the navigation. Both are set so the
+     * link is still a link to copy, and still opens in a new tab.
+     */
+    private function linkButton(string $url, string $text, string $class): Button
+    {
+        return Button::raw()
+            ->tag('a')
+            ->attr(['href' => $url])
+            ->className($class)
+            ->text($text)
+            ->action('window.location.href = '.json_encode($url, JSON_UNESCAPED_SLASHES).';');
     }
 
     /** Gate the export action itself, not just the button that triggers it. */
@@ -131,13 +207,28 @@ class AddressDataTable extends DataTable
             ? []
             : [Column::make('owner')->title('Owner')];
 
+        // Dropped on the same page, and together, for the reasons
+        // hidesMapAndDefault() gives.
+        $personal = $this->hidesMapAndDefault()
+            ? []
+            : [
+                Column::computed('map')
+                    ->title('Map')
+                    ->orderable(true)
+                    // Kept out of the global search: the cell holds markup, and the
+                    // other columns are what a reader types a place name into.
+                    ->searchable(false)
+                    ->addClass('text-center'),
+                Column::make('is_default')->title('Default'),
+            ];
+
         return [
             ...$owner,
             Column::make('label'),
             Column::make('line1')->title('Address'),
             Column::make('city'),
             Column::make('country'),
-            Column::make('is_default')->title('Default'),
+            ...$personal,
             Column::computed('actions')
                 ->title('Actions')
                 ->orderable(false)

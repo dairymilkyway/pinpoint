@@ -10,7 +10,7 @@
                 <p class="eyebrow mb-1">Permission matrix</p>
                 <p class="mb-0 text-dim small">
                     Check a box to grant a permission to a role, then save. Changes take effect on the next request.
-                    <code class="mono">{{ $managePermission }}</code> is always kept on the {{ $superadminRole }} role.
+                    <strong>{{ \App\Rbac::label($managePermission) }}</strong> is always kept on the {{ $superadminRole }} role.
                 </p>
             </div>
         </div>
@@ -32,27 +32,38 @@
                         @foreach ($permissions as $permission)
                             <tr>
                                 <td>
-                                    <span class="matrix__perm">{{ $permission->name }}</span>
-                                    @if ($permission->name === $managePermission)
-                                        <span class="badge badge-amber ms-2">locked to {{ $superadminRole }}</span>
-                                    @endif
+                                    {{-- The label is what a reader decides on; the machine
+                                         name beneath it is what they need when matching the
+                                         row to a seeder constant or a denied policy check. --}}
+                                    <span class="matrix__perm">
+                                        {{ \App\Rbac::label($permission->name) }}
+                                        @if ($permission->name === $managePermission)
+                                            <span class="badge badge-amber ms-2">locked to {{ $superadminRole }}</span>
+                                        @endif
+                                    </span>
+                                    <code class="matrix__perm__code">{{ $permission->name }}</code>
                                 </td>
                                 @foreach ($roles as $role)
                                     @php($granted = $role->permissions->contains('name', $permission->name))
-                                    {{-- The badge above says this one is locked to the
-                                         Superadmin, so the box has to be locked too. It
-                                         was tickable, and unticking it did nothing but
-                                         look like it had worked - the controller puts it
-                                         back. A disabled input is not submitted, which is
-                                         exactly right here: the controller re-adds it. --}}
-                                    @php($locked = $role->name === $superadminRole && $permission->name === $managePermission)
+                                    {{-- Locked on every column, not only the Superadmin's.
+                                         Ticking it elsewhere looked like it had worked and
+                                         handed that role the page it is standing on, from
+                                         where it could grant itself everything else. It
+                                         reads checked for the Superadmin and unchecked
+                                         everywhere else, which is the state the controller
+                                         enforces on save. A disabled input is not
+                                         submitted, which is right in both directions: the
+                                         controller drops it from the roles that must not
+                                         hold it and re-adds it to the one that must. --}}
+                                    @php($locked = $permission->name === $managePermission)
+                                    @php($checked = $locked ? $role->name === $superadminRole : $granted)
                                     <td>
                                         <input type="checkbox" class="form-check-input"
                                                name="permissions[{{ $role->name }}][]"
                                                value="{{ $permission->name }}"
-                                               @checked($granted || $locked)
+                                               @checked($checked)
                                                @disabled($locked)
-                                               aria-label="{{ $permission->name }} for {{ $role->name }}">
+                                               aria-label="{{ \App\Rbac::label($permission->name) }} for {{ $role->name }}">
                                     </td>
                                 @endforeach
                             </tr>

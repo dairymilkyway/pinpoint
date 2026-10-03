@@ -13,10 +13,16 @@ class AddressDataTableTest extends TestCase
     use RefreshDatabase;
 
     /** The directory table, which still carries the Owner column. */
-    private const COLUMNS = ['owner', 'label', 'line1', 'city', 'country', 'is_default', 'actions'];
+    private const COLUMNS = ['owner', 'label', 'line1', 'city', 'country', 'map', 'is_default', 'actions'];
 
-    /** One owner's page, where the Owner column would repeat a single name. */
-    private const SCOPED_COLUMNS = ['label', 'line1', 'city', 'country', 'is_default', 'actions'];
+    /**
+     * One owner's page. The Owner column would repeat a single name, and a
+     * reader loses Map and Default there too - see hidesMapAndDefault().
+     */
+    private const SCOPED_COLUMNS = ['label', 'line1', 'city', 'country', 'actions'];
+
+    /** Where Map sits in the directory column list, for an ordering request. */
+    private const MAP_COLUMN = 5;
 
     protected function setUp(): void
     {
@@ -161,6 +167,85 @@ class AddressDataTableTest extends TestCase
 
         $response->assertOk();
         $this->assertCount(0, $response->json('data'));
+    }
+
+    /**
+     * A reader opening somebody else's profile gets neither column. The default
+     * marker is that owner's own business, and the Pins panel beside the table
+     * already answers what the pin state answers, so the column is a second copy
+     * of it. The flat table a Customer reads keeps both.
+     */
+    public function test_an_owners_page_drops_the_map_and_default_columns(): void
+    {
+        $reader = $this->userWithRole('Superadmin');
+        Address::factory()->for($reader)->create(['is_default' => true]);
+
+        $scoped = $this->ajax($reader, $reader)->json('data.0');
+
+        // Absent from the payload, not merely undeclared: an addColumn value
+        // rides along in the row whether or not a column is declared for it.
+        $this->assertArrayNotHasKey('map', $scoped);
+
+        $customer = $this->userWithRole('Customer');
+        Address::factory()->for($customer)->create(['is_default' => true]);
+
+        $unscoped = $this->ajax($customer)->json('data.0');
+        $this->assertArrayHasKey('map', $unscoped);
+
+        // is_default is a real column rather than an added one, so it stays in
+        // the payload either way - only the column that draws it is gone.
+        $this->assertArrayHasKey('is_default', $scoped);
+    }
+
+    /**
+     * The factory only ever builds cities GeoNames could place, so the pinned
+     * row is the default and the unpinned one is stated outright. Both states
+     * have to be legible, because the reader's question is "why is my pin
+     * missing" and the answer is a property of the row.
+     */
+    public function test_the_map_column_says_which_rows_have_coordinates(): void
+    {
+        $customer = $this->userWithRole('Customer');
+        Address::factory()->for($customer)->create(['label' => 'Pinned']);
+        Address::factory()->for($customer)->create([
+            'label' => 'Unpinned',
+            'latitude' => null,
+            'longitude' => null,
+        ]);
+
+        $response = $this->ajax($customer);
+        $response->assertOk();
+
+        $rows = collect($response->json('data'))->keyBy('label');
+
+        $this->assertStringContainsString('bi-geo-alt', $rows['Pinned']['map']);
+        $this->assertStringNotContainsString('No location', $rows['Pinned']['map']);
+        $this->assertStringContainsString('No location', $rows['Unpinned']['map']);
+    }
+
+    /**
+     * Sorting is what turns the column into something a reader can act on: it
+     * gathers the rows that will not be drawn, so they can be found without
+     * scrolling the whole book.
+     */
+    public function test_the_map_column_sorts_the_unpinned_rows_together(): void
+    {
+        $customer = $this->userWithRole('Customer');
+        Address::factory()->for($customer)->create(['label' => 'Pinned']);
+        Address::factory()->for($customer)->create([
+            'label' => 'Unpinned',
+            'latitude' => null,
+            'longitude' => null,
+        ]);
+
+        $response = $this->ajax($customer, null, [
+            'order' => [['column' => self::MAP_COLUMN, 'dir' => 'desc']],
+        ]);
+
+        $response->assertOk();
+
+        // Descending puts the rows with no latitude on top.
+        $this->assertSame('Unpinned', $response->json('data.0.label'));
     }
 
     public function test_pagination_limits_the_page_size(): void

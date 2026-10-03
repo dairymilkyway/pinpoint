@@ -10,14 +10,10 @@
         <div class="panel__head">
             <div>
                 <p class="eyebrow mb-1">Your addresses</p>
+                {{-- New address and Import live in the table's own toolbar rather
+                     than here, so the panel does not carry the same button twice. --}}
                 <p class="mb-0 text-dim small">The addresses on your account. Search and sort from here.</p>
             </div>
-
-            @can('addresses.create')
-                <a href="{{ route('addresses.create') }}" class="btn btn-primary btn-sm text-nowrap">
-                    <i class="bi bi-plus-lg"></i> <span class="ms-1">New address</span>
-                </a>
-            @endcan
         </div>
 
         <div class="panel__body panel__body--flush skeleton-host">

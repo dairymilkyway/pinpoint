@@ -26,6 +26,12 @@ class GeoLookupTest extends TestCase
         return User::factory()->create()->assignRole('Superadmin');
     }
 
+    /** Readers own nothing, so a creation has to name the account it is for. */
+    private function customer(): User
+    {
+        return User::factory()->create()->assignRole('Customer');
+    }
+
     private function cityCodeNamed(string $name): string
     {
         foreach (PhLocations::cities() as $code => $city) {
@@ -87,9 +93,10 @@ class GeoLookupTest extends TestCase
     public function test_storing_an_address_with_a_city_code_derives_the_rest(): void
     {
         $superadmin = $this->superadmin();
+        $customer = $this->customer();
 
         $this->actingAs($superadmin)
-            ->post(route('addresses.store'), [
+            ->post(route('addresses.store', ['user' => $customer->id]), [
                 'label' => 'Head Office',
                 'line1' => '1 Test Street',
                 'city_code' => $this->cityCodeNamed('City of Cebu'),
@@ -102,7 +109,7 @@ class GeoLookupTest extends TestCase
             ])
             // A reader of the whole book lands on the owner's page, so the
             // address they just made is on screen.
-            ->assertRedirect(route('addresses.user', $superadmin))
+            ->assertRedirect(route('addresses.user', $customer))
             ->assertSessionHasNoErrors();
 
         $address = Address::sole();
@@ -128,7 +135,7 @@ class GeoLookupTest extends TestCase
         $superadmin = $this->superadmin();
 
         $this->actingAs($superadmin)
-            ->post(route('addresses.store'), [
+            ->post(route('addresses.store', ['user' => $this->customer()->id]), [
                 'label' => 'Head Office',
                 'line1' => '1 Roxas Boulevard',
                 'city_code' => $this->cityCodeNamed('City of Manila'),
@@ -152,7 +159,7 @@ class GeoLookupTest extends TestCase
     public function test_a_city_in_a_province_records_that_province(): void
     {
         $this->actingAs($this->superadmin())
-            ->post(route('addresses.store'), [
+            ->post(route('addresses.store', ['user' => $this->customer()->id]), [
                 'label' => 'Branch',
                 'line1' => '2 Test Street',
                 'city_code' => $this->cityCodeNamed('City of Vigan'),
@@ -214,5 +221,120 @@ class GeoLookupTest extends TestCase
     public function test_the_map_requires_authentication(): void
     {
         $this->get(route('home.map'))->assertRedirect(route('login'));
+    }
+
+    /**
+     * The fallback for the documented gap: 154 of the 1642 cities have no
+     * coordinates, so a row in one of them is drawn at the centre of the
+     * province or region it is known to sit in.
+     */
+    public function test_a_city_the_dataset_cannot_place_borrows_its_regions_centre(): void
+    {
+        // Taguig is a Metro Manila city with no province, so the region is the
+        // only coarser place there is to borrow from.
+        $centre = PhLocations::approximateFor('1381500000');
+
+        $this->assertNotNull($centre);
+
+        // Inside Metro Manila, and nowhere near anything that could be mistaken
+        // for the city itself. This is the assertion that keeps the fallback an
+        // approximation: if a real position is ever added for Taguig, this test
+        // should be the thing that notices and gets updated.
+        $this->assertGreaterThan(14.3, $centre['lat']);
+        $this->assertLessThan(14.8, $centre['lat']);
+        $this->assertGreaterThan(120.9, $centre['lng']);
+        $this->assertLessThan(121.2, $centre['lng']);
+    }
+
+    public function test_a_city_that_was_placed_is_never_approximated(): void
+    {
+        // The fallback exists for the cities that have none, not as a substitute
+        // for the 1488 that do.
+        $this->assertNotNull(PhLocations::coordinatesFor('1380300000'));
+        $this->assertNull(PhLocations::approximateFor('1380300000'));
+    }
+
+    public function test_there_is_nothing_to_approximate_without_a_known_city(): void
+    {
+        // A code the dataset has never heard of, and the free-text path, which
+        // carries no code at all. Neither can borrow a centre, and the fallback
+        // must not become a licence to invent a position for anything.
+        $this->assertNull(PhLocations::approximateFor(null));
+        $this->assertNull(PhLocations::approximateFor('9999999999'));
+    }
+
+    public function test_every_city_without_coordinates_can_still_be_drawn(): void
+    {
+        $unplaced = 0;
+
+        foreach (PhLocations::cities() as $code => $city) {
+            if (PhLocations::coordinatesFor($code) !== null) {
+                continue;
+            }
+
+            $unplaced++;
+
+            $this->assertNotNull(
+                PhLocations::approximateFor($code),
+                "{$city['name']} ({$code}) has no coordinates and nothing to borrow from",
+            );
+        }
+
+        // Guards the loop against being vacuous: a fetch that returned nothing
+        // would otherwise pass this test by never running it.
+        $this->assertGreaterThan(0, $unplaced, 'the loop should have found cities with no coordinates');
+    }
+
+    public function test_the_map_draws_an_unplaceable_city_and_flags_it(): void
+    {
+        $superadmin = $this->superadmin();
+
+        $address = Address::factory()->for($superadmin)->create([
+            'city' => 'City of Taguig',
+            'city_code' => '1381500000',
+            'postal_code' => '1630',
+            'latitude' => null,
+            'longitude' => null,
+        ]);
+
+        $points = $this->actingAs($superadmin)->getJson(route('home.map'))->assertOk()->json();
+
+        $this->assertCount(1, $points);
+        $this->assertSame('City of Taguig', $points[0]['city']);
+        $this->assertTrue($points[0]['approximate'], 'a borrowed position must say so');
+        $this->assertEqualsWithDelta(14.5868, $points[0]['lat'], 0.01);
+
+        // The stand-in is drawn, never stored. The row still holds no
+        // coordinates, which is what keeps the coverage figure above the map
+        // and the spreadsheet export telling the truth.
+        $this->assertNull($address->fresh()->latitude);
+    }
+
+    public function test_a_placed_city_is_not_flagged_as_approximate(): void
+    {
+        $superadmin = $this->superadmin();
+        Address::factory()->for($superadmin)->create();
+
+        $points = $this->actingAs($superadmin)->getJson(route('home.map'))->assertOk()->json();
+
+        $this->assertCount(1, $points);
+        $this->assertFalse($points[0]['approximate']);
+    }
+
+    public function test_a_free_text_address_is_still_absent_from_the_map(): void
+    {
+        $superadmin = $this->superadmin();
+
+        Address::factory()->for($superadmin)->create([
+            'city' => 'Springfield',
+            'city_code' => null,
+            'latitude' => null,
+            'longitude' => null,
+        ]);
+
+        $this->assertSame(
+            [],
+            $this->actingAs($superadmin)->getJson(route('home.map'))->assertOk()->json(),
+        );
     }
 }

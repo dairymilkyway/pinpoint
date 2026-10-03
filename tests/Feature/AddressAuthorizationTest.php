@@ -53,6 +53,21 @@ class AddressAuthorizationTest extends TestCase
         $this->assertDatabaseCount('addresses', 0);
     }
 
+    /**
+     * The gate runs ahead of the controller body, so naming an account in the
+     * query string cannot turn a 403 into a write on somebody else's book.
+     */
+    public function test_customer_cannot_store_by_naming_another_account(): void
+    {
+        $other = $this->userWithRole('Customer');
+
+        $this->actingAs($this->userWithRole('Customer'))
+            ->post(route('addresses.store', ['user' => $other->id]), $this->validPayload())
+            ->assertForbidden();
+
+        $this->assertDatabaseCount('addresses', 0);
+    }
+
     public function test_customer_cannot_open_the_edit_form(): void
     {
         $address = Address::factory()->create();

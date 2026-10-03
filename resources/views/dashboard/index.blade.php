@@ -208,9 +208,22 @@
                                  for the person reading it. --}}
                             <p class="eyebrow mb-1">{{ $seesEveryAddress ? 'User locations' : 'Your locations' }}</p>
                             {{-- The map shows which addresses are pinned; this line
-                                 is the one fact it cannot: how many are not.
-                                 Kept on one line so the sentence renders contiguously. --}}
-                            <p class="mb-0 text-dim small">{{ $seesEveryAddress ? 'Every address on file' : 'Your own addresses' }}, pinned. {{ number_format($coverage['pinned']) }} of {{ number_format($coverage['total']) }} addresses have coordinates. Tiles by OpenStreetMap.</p>
+                                 is the one fact it cannot: how many are not. Some
+                                 of the gap is drawn anyway, from the province or
+                                 region centre, so the second sentence is what stops
+                                 the stand-ins reading as positions. It says "where
+                                 one is known" rather than claiming all of them:
+                                 a free-text address, or one whose city is placed
+                                 but whose own coordinates are missing, has nothing
+                                 to borrow from and stays off the map. --}}
+                            <p class="mb-0 text-dim small">
+                                {{ $seesEveryAddress ? 'Every address on file' : 'Your own addresses' }}, pinned.
+                                {{ number_format($coverage['pinned']) }} of {{ number_format($coverage['total']) }} addresses have coordinates.
+                                @if ($coverage['pinned'] < $coverage['total'])
+                                    The rest are drawn at the centre of their province or region where one is known, and marked as approximate.
+                                @endif
+                                Tiles by OpenStreetMap.
+                            </p>
                         </div>
                     </div>
 

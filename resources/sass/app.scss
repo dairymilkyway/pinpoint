@@ -632,6 +632,16 @@ a {
     color: #ffb4b4;
 }
 
+// Neutral rather than tinted: this one reports a fact about the data, not an
+// outcome to celebrate or a fault to fix. Bootstrap's stock info blue is a light
+// surface, which the theme never uses - and it would leave the white close
+// button invisible.
+.alert-info {
+    background-color: rgba(255, 255, 255, 0.04);
+    border-color: var(--line-strong);
+    color: var(--text-dim);
+}
+
 .modal-content {
     background-color: var(--ink-900);
     border: 1px solid var(--line-strong);
@@ -694,10 +704,20 @@ a {
     background-color: var(--ink-850);
 }
 
+/* The readable label, with the machine name as its own line beneath. The mono
+   treatment belongs to the machine name, which is the thing a reader matches
+   against a constant - not to the label, which is prose. */
 .matrix__perm {
-    font-family: $font-family-monospace;
-    font-size: 0.8125rem;
+    display: block;
     color: var(--text);
+}
+
+.matrix__perm__code {
+    display: block;
+    margin-top: 0.125rem;
+    font-family: $font-family-monospace;
+    font-size: 0.75rem;
+    color: var(--text-dim);
 }
 
 /* ==========================================================================
@@ -971,6 +991,12 @@ a {
 
 .map__owner {
     color: var(--text-faint);
+}
+
+// Marks a pin that is a stand-in rather than a position - the amber of the
+// dashed marker it belongs to, so the popup and the pin agree.
+.map__approx {
+    color: var(--amber);
 }
 
 /* ==========================================================================

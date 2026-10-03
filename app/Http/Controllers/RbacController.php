@@ -38,10 +38,18 @@ class RbacController extends Controller
         foreach (Role::all() as $role) {
             $names = $submitted[$role->name] ?? [];
 
-            // The Superadmin role keeps rbac.manage no matter what the form
-            // posts, otherwise a superadmin could lock every superadmin out of
-            // this page. This follows the role that holds the permission, not
-            // the one whose name happens to start with "admin".
+            // Dropped from every role before it is added back to the one that
+            // holds it. rbac.manage is what gates this page, so a role holding
+            // it can grant itself every other permission and come back here -
+            // handing it out is self-service escalation, not delegation. The
+            // form disables the box, but a disabled control is a rendering
+            // decision and a crafted POST is not, so the rule lives here too.
+            $names = array_diff($names, [Rbac::MANAGE_PERMISSION]);
+
+            // And the Superadmin keeps it no matter what the form posts,
+            // otherwise a superadmin could lock every superadmin out of this
+            // page. This follows the role that holds the permission, not the
+            // one whose name happens to start with "admin".
             if ($role->name === Rbac::SUPERADMIN_ROLE) {
                 $names[] = Rbac::MANAGE_PERMISSION;
             }

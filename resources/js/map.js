@@ -77,12 +77,34 @@ async function drawMap(element) {
             ? `<br><span class="map__owner">${escape(point.owner)}</span>`
             : '';
 
-        return L.marker([point.lat, point.lng]).bindPopup(
-            `<strong>${escape(point.label)}</strong><br>`
+        // A pin for a city the dataset cannot place is drawn at the centre of
+        // its province or region, which is a stand-in rather than a position.
+        // It is drawn hollow and says so in the popup: a guess that looks like a
+        // measurement is worse than no pin, and the whole point of surfacing it
+        // is that the reader can tell which is which.
+        const approximate = point.approximate
+            ? '<br><span class="map__approx">Approximate location. The dataset has no'
+                + ' coordinates for this city, so this is the centre of its province or region.</span>'
+            : '';
+
+        const popup = `<strong>${escape(point.label)}</strong><br>`
             + `${escape(point.line)}<br>`
             + `${escape(where)} ${escape(point.postal)}`
             + owner
-        );
+            + approximate;
+
+        // Amber is the theme's accent, and the dashed hollow ring reads as
+        // provisional next to the solid red default marker.
+        return point.approximate
+            ? L.circleMarker([point.lat, point.lng], {
+                radius: 7,
+                color: '#e9a23b',
+                weight: 2,
+                dashArray: '3 3',
+                fillColor: '#e9a23b',
+                fillOpacity: 0.15,
+            }).bindPopup(popup)
+            : L.marker([point.lat, point.lng]).bindPopup(popup);
     });
 
     const group = L.featureGroup(markers).addTo(map);

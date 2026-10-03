@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AddressController;
+use App\Http\Controllers\AddressImportController;
 use App\Http\Controllers\AddressRequestController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\DashboardController;
@@ -27,6 +28,13 @@ Route::middleware('auth')->group(function () {
     Route::get('addresses/create', [AddressController::class, 'create'])->name('addresses.create');
     Route::post('addresses', [AddressController::class, 'store'])->name('addresses.store');
     Route::get('addresses/users/{user}', [AddressController::class, 'forUser'])->name('addresses.user');
+
+    // Above the {address} routes so 'import' is read as the literal segment it
+    // is rather than as an id.
+    Route::get('addresses/import', [AddressImportController::class, 'create'])->name('addresses.import.create');
+    Route::post('addresses/import', [AddressImportController::class, 'store'])->name('addresses.import.store');
+    Route::get('addresses/import/template', [AddressImportController::class, 'template'])->name('addresses.import.template');
+
     Route::get('addresses/{address}/edit', [AddressController::class, 'edit'])->name('addresses.edit');
     Route::put('addresses/{address}', [AddressController::class, 'update'])->name('addresses.update');
     Route::delete('addresses/{address}', [AddressController::class, 'destroy'])->name('addresses.destroy');

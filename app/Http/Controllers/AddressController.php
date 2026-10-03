@@ -118,19 +118,76 @@ class AddressController extends Controller
             ->implode('');
     }
 
-    public function create(): View
+    /**
+     * Creating starts by naming whose address it is.
+     *
+     * The roles that may create hold no addresses of their own - they are
+     * readers of the whole book, not owners in it - so the actor is never the
+     * answer here. Building for the actor is what put addresses on accounts the
+     * rest of the app does not expect to hold any.
+     *
+     * With no account chosen yet, this is the picker and nothing else. One
+     * account resolved, it is the form. Letting the same route do both means a
+     * typed /addresses/create cannot step past the choice.
+     */
+    public function create(Request $request): View
     {
         $this->authorize('create', Address::class);
 
-        return view('addresses.create', ['address' => new Address]);
+        $owner = $this->ownerFrom($request);
+
+        if ($owner === null) {
+            return view('addresses.setup', [
+                'accounts' => User::query()->owningAccounts()->orderBy('name')->get(),
+            ]);
+        }
+
+        return view('addresses.create', ['address' => new Address, 'owner' => $owner]);
     }
 
     public function store(StoreAddressRequest $request): RedirectResponse
     {
-        $request->user()->addresses()->create($request->validated());
+        $owner = $this->ownerFrom($request);
 
-        return $this->afterWrite($request, $request->user())
+        // The account is part of the address's identity, not a field on the
+        // form: without it there is nothing to create and nowhere to put it.
+        abort_if($owner === null, 404);
+
+        $owner->addresses()->create($request->validated());
+
+        return $this->afterWrite($request, $owner)
             ->with('success', 'Address created.');
+    }
+
+    /**
+     * The account the address is being made for, or null when none was chosen.
+     *
+     * Taken from the query string rather than a posted field, so user_id never
+     * becomes validated input that could be mass-assigned - the same convention
+     * the import page uses, and the reason neither request class carries a rule
+     * for it.
+     *
+     * Resolved through owningAccounts() rather than trusting the id, for the
+     * reason AddressImportController gives: the managing roles own nothing, so
+     * an id naming one describes a state the rest of the app does not expect.
+     * An unusable id is treated as no id at all: create() falls back to the
+     * picker, and store() refuses, having nothing to put the address on.
+     */
+    private function ownerFrom(Request $request): ?User
+    {
+        // Anyone who does not read the whole book can only ever write to their
+        // own, so there is nothing for them to choose and no picker to show -
+        // and a crafted query string cannot reach an account they could not
+        // otherwise touch. The same rule the import applies, for the same
+        // reason. It is unreachable through the shipped matrix, where only the
+        // managing roles hold addresses.create, but the matrix is editable.
+        if (! $request->user()->seesEveryAddress()) {
+            return $request->user();
+        }
+
+        $id = $request->integer('user');
+
+        return $id === 0 ? null : User::query()->owningAccounts()->find($id);
     }
 
     public function edit(Address $address): View

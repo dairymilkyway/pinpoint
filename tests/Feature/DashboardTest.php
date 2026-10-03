@@ -228,6 +228,30 @@ class DashboardTest extends TestCase
             ->assertSee('0 of 1 addresses have coordinates.');
     }
 
+    public function test_the_coverage_figure_counts_measurements_not_stand_ins(): void
+    {
+        $customer = $this->userWithRole('Customer');
+
+        // A city the dataset cannot place. The map draws it from the region
+        // centre, but nothing was ever measured for this row.
+        Address::factory()->for($customer)->create([
+            'city' => 'City of Taguig',
+            'city_code' => '1381500000',
+            'postal_code' => '1630',
+            'latitude' => null,
+            'longitude' => null,
+        ]);
+
+        // Both halves of the split, asserted together: the figure above the map
+        // stays about the data, and the caption is what explains the pin the
+        // reader is about to see.
+        $this->actingAs($customer)
+            ->get(route('home'))
+            ->assertOk()
+            ->assertSee('0 of 1 addresses have coordinates.')
+            ->assertSee('The rest are drawn at the centre of their province or region where one is known');
+    }
+
     public function test_an_empty_directory_renders_without_errors(): void
     {
         $this->actingAs($this->userWithRole('Customer'))

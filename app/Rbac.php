@@ -61,6 +61,43 @@ final class Rbac
     ];
 
     /**
+     * What each permission is called where a person reads it rather than
+     * matches it.
+     *
+     * Every label leads with its verb on purpose. The matrix sorts by machine
+     * name, so leading with the verb is what makes the rendered column read
+     * alphabetically - "Approve requests" before "Create addresses" - rather
+     * than in an order the sort key hides. Keep that property when editing.
+     *
+     * Keyed by the constants rather than written as a second list of strings,
+     * for the same reason PERMISSIONS is: a literal that drifts is invisible.
+     * RbacTest asserts the two maps cover each other.
+     */
+    public const LABELS = [
+        self::VIEW_PERMISSION => 'View addresses',
+        self::CREATE_PERMISSION => 'Create addresses',
+        self::EDIT_PERMISSION => 'Edit addresses',
+        self::DELETE_PERMISSION => 'Delete addresses',
+        self::EXPORT_PERMISSION => 'Export to Excel',
+        self::REQUEST_PERMISSION => 'Request a change',
+        self::APPROVE_PERMISSION => 'Approve requests',
+        self::AUDIT_PERMISSION => 'Read the audit log',
+        self::MANAGE_PERMISSION => 'Manage roles & permissions',
+    ];
+
+    /**
+     * The readable name for a permission, or the machine name if it has none.
+     *
+     * Falls back rather than throwing: a permission added without a label should
+     * render as its raw name on the roles screen, not take the screen down.
+     * RbacTest is what makes the fallback unreachable in practice.
+     */
+    public static function label(string $permission): string
+    {
+        return self::LABELS[$permission] ?? $permission;
+    }
+
+    /**
      * The roles, in descending authority.
      *
      * Superadmin and Admin both read the whole directory - that is
