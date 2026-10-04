@@ -12,8 +12,8 @@ class AddressDataTableTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** The directory table, which still carries the Owner column. */
-    private const COLUMNS = ['owner', 'label', 'line1', 'city', 'country', 'actions'];
+    /** The directory table, which still carries the Owner and Phone columns. */
+    private const COLUMNS = ['owner', 'owner_phone', 'label', 'line1', 'city', 'country', 'actions'];
 
     /**
      * One owner's page. The Owner column would repeat a single name, and a
@@ -46,6 +46,30 @@ class AddressDataTableTest extends TestCase
      * a deletion, and move their own default marker - and none of the two that
      * would write directly.
      */
+    /**
+     * A Customer's own book is the one shape where the unscoped columns are
+     * reachable, so it is the only place the Phone column is drawn. One owner's
+     * page drops it along with Owner - the number appears once in that page's
+     * identity header instead, which UserProfileTest covers.
+     */
+    public function test_the_phone_column_reaches_a_customer_on_their_own_book(): void
+    {
+        $customer = User::factory()->create(['phone' => '+639171234567'])->assignRole('Customer');
+        Address::factory()->for($customer)->create();
+
+        $this->assertSame('+639171234567', $this->fetchRow($customer)['owner_phone']);
+    }
+
+    public function test_the_phone_column_is_dropped_on_one_owners_page(): void
+    {
+        $superadmin = $this->userWithRole('Superadmin');
+        Address::factory()->for($superadmin)->create();
+
+        // Same reasoning as the Owner column: repeated on every row, so the
+        // header states it once and the column goes.
+        $this->assertArrayNotHasKey('owner_phone', $this->fetchRow($superadmin, $superadmin));
+    }
+
     public function test_customer_row_actions_offer_requests_instead_of_writes(): void
     {
         $customer = $this->userWithRole('Customer');
@@ -265,8 +289,8 @@ class AddressDataTableTest extends TestCase
     /**
      * A DataTables request, sent to the directory table or to one owner's page.
      *
-     * The column list has to match the table that will answer it, which is one
-     * column shorter once the Owner column is dropped.
+     * The column list has to match the table that will answer it, which is two
+     * columns shorter once the Owner and Phone columns are dropped.
      */
     private function ajax(User $actor, ?User $owner = null, array $overrides = [])
     {
@@ -295,7 +319,10 @@ class AddressDataTableTest extends TestCase
             'start' => 0,
             'length' => 10,
             'search' => ['value' => '', 'regex' => 'false'],
-            'order' => [['column' => 1, 'dir' => 'asc']],
+            // Whichever index Label sits at in this shape, so the request follows
+            // the table's own default instead of a number that goes stale the
+            // next time a column is added in front of it.
+            'order' => [['column' => array_search('label', $columns), 'dir' => 'asc']],
             'columns' => [],
         ];
 

@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
-@section('title', 'Addresses')
-@section('heading', 'Addresses')
+@section('title', 'Address owners')
+@section('heading', 'Address owners')
 
 @section('content')
     {{-- The front door for a reader of the whole book: the users, not the

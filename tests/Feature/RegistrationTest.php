@@ -30,6 +30,7 @@ class RegistrationTest extends TestCase
         $this->post(route('register'), array_merge([
             'name' => 'Nena Cruz',
             'email' => 'nena@example.test',
+            'phone' => '09171234567',
             'password' => 'register-secret-1234',
             'password_confirmation' => 'register-secret-1234',
         ], $overrides))->assertRedirect(route('home'));

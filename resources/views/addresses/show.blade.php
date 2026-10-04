@@ -19,6 +19,9 @@
 
                     <p class="mb-0 text-dim small text-truncate">
                         {{ $owner->email }}
+                        @if ($owner->phone)
+                            &middot; {{ $owner->phone }}
+                        @endif
                         @if ($owner->created_at)
                             &middot; joined {{ $owner->created_at->format('M j, Y') }}
                         @endif

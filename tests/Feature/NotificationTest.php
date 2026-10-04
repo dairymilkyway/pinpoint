@@ -55,10 +55,37 @@ class NotificationTest extends TestCase
             ->post(route('notifications.read', $notification->id))
             ->assertNotFound();
 
+        // The detail page reads through the same relation, so it answers the
+        // same way rather than becoming a second, differently-guarded door onto
+        // somebody else's notification.
+        $this->actingAs($theirs)
+            ->get(route('notifications.show', $notification->id))
+            ->assertNotFound();
+
         $this->assertNull($notification->fresh()->read_at);
     }
 
-    public function test_opening_a_notification_marks_it_read_and_follows_its_link(): void
+    public function test_a_notification_whose_request_is_gone_still_renders(): void
+    {
+        $customer = $this->customer();
+        $change = $this->raise($customer);
+
+        // The payload was written as a snapshot precisely so it keeps making
+        // sense after the thing it is about has gone. If the page ever starts
+        // re-reading the request instead, this is what catches it.
+        $change->delete();
+
+        $notification = $customer->notifications()->sole();
+
+        $html = $this->actingAs($customer)
+            ->get(route('notifications.show', $notification->id))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringContainsString('asked to add an address', $html);
+    }
+
+    public function test_opening_a_notification_marks_it_read_and_lands_on_its_page(): void
     {
         $customer = $this->customer();
         $this->raise($customer);
@@ -66,14 +93,18 @@ class NotificationTest extends TestCase
         $notification = $customer->notifications()->sole();
         $this->assertNull($notification->read_at);
 
+        // The destination used to be the notification's stored url, which for a
+        // decided request was the whole queue - the reader landed on a list with
+        // no sign of which row they had been told about. It is now the
+        // notification's own page.
         $this->actingAs($customer)
             ->post(route('notifications.read', $notification->id))
-            ->assertRedirect(route('requests.index'));
+            ->assertRedirect(route('notifications.show', $notification->id));
 
         $this->assertNotNull($notification->fresh()->read_at);
     }
 
-    public function test_a_notification_link_outside_the_app_lands_on_the_dashboard(): void
+    public function test_a_notification_with_a_foreign_link_still_opens_its_own_page(): void
     {
         $customer = $this->customer();
 
@@ -84,10 +115,20 @@ class NotificationTest extends TestCase
         ]);
 
         // The links are written by this app, but a redirect built from a stored
-        // string is the shape of an open redirect. One comparison closes it.
+        // string is the shape of an open redirect. Opening no longer redirects to
+        // that string at all, so a foreign url cannot steer the navigation - the
+        // comparison that used to guard the redirect now guards the link the
+        // detail page renders, which is why this case also asserts on that page.
         $this->actingAs($customer)
             ->post(route('notifications.read', $notification->id))
-            ->assertRedirect(route('home'));
+            ->assertRedirect(route('notifications.show', $notification->id));
+
+        $html = $this->actingAs($customer)
+            ->get(route('notifications.show', $notification->id))
+            ->assertOk()
+            ->getContent();
+
+        $this->assertStringNotContainsString('https://example.test/phish', $html);
     }
 
     /**

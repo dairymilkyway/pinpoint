@@ -7,13 +7,18 @@ use App\Models\Address;
 use App\Models\AddressRequest;
 use App\Models\AuditLog;
 use App\Models\User;
+use App\Rules\PhilippineMobileNumber;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Validator;
 use Tests\TestCase;
 
 class SeederTest extends TestCase
 {
     use RefreshDatabase;
+
+    /** @var list<array<string, string>> */
+    private array $shippedPeople = [];
 
     protected function setUp(): void
     {
@@ -21,18 +26,24 @@ class SeederTest extends TestCase
 
         $this->withoutVite();
 
+        // The real file's people, read before the stand-in replaces them below.
+        // The numbers are literals in config/demo.php rather than env-derived, so
+        // this is the only assertion that can catch a bad number in the shipped
+        // config - the seeded rows all come from the stand-in.
+        $this->shippedPeople = array_merge(config('demo.accounts'), config('demo.owners'));
+
         // Stand in for the .env values the seeder normally reads, so the test
         // does not depend on a developer's local environment.
         config([
             'demo.owners_password' => 'demo-secret-1234',
             'demo.accounts' => [
-                ['role' => 'Superadmin', 'name' => 'Ana Reyes', 'email' => 'admin@example.test', 'password' => 'admin-secret-1234'],
-                ['role' => 'Admin', 'name' => 'Miguel Santos', 'email' => 'manager@example.test', 'password' => 'demo-secret-1234'],
-                ['role' => 'Customer', 'name' => 'Liza Mendoza', 'email' => 'viewer@example.test', 'password' => 'demo-secret-1234'],
+                ['role' => 'Superadmin', 'name' => 'Ana Reyes', 'email' => 'ana.reyes@gmail.com', 'password' => 'admin-secret-1234', 'phone' => '+639170000001'],
+                ['role' => 'Admin', 'name' => 'Miguel Santos', 'email' => 'miguel.santos@gmail.com', 'password' => 'demo-secret-1234', 'phone' => '+639170000002'],
+                ['role' => 'Customer', 'name' => 'Liza Mendoza', 'email' => 'liza.mendoza@gmail.com', 'password' => 'demo-secret-1234', 'phone' => '+639170000003'],
             ],
             'demo.owners' => [
-                'Juan Dela Cruz' => 'juan.delacruz@example.test',
-                'Maria Santos' => 'maria.santos@example.test',
+                ['name' => 'Juan Dela Cruz', 'email' => 'juan.delacruz@gmail.com', 'phone' => '+639170000004'],
+                ['name' => 'Maria Santos', 'email' => 'maria.santos@gmail.com', 'phone' => '+639170000005'],
             ],
         ]);
     }
@@ -53,6 +64,107 @@ class SeederTest extends TestCase
         // Nobody was left behind without a role, which is what the old
         // User::factory() call in this seeder used to produce.
         $this->assertSame(0, User::doesntHave('roles')->count());
+    }
+
+    /**
+     * Every number the seeder writes comes from config rather than a hash, so
+     * what lands in the database is what someone chose - and it has to be one
+     * the app's own rule accepts.
+     */
+    public function test_every_seeded_person_gets_the_mobile_number_from_config(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        foreach (User::all() as $user) {
+            $this->assertNotNull($user->phone, "{$user->name} was seeded without a number.");
+            $this->assertTrue(
+                $this->isMobileNumber($user->phone),
+                "{$user->name} was seeded with a number the rule rejects: {$user->phone}",
+            );
+        }
+
+        foreach (array_merge(config('demo.accounts'), config('demo.owners')) as $person) {
+            $this->assertSame(
+                $person['phone'],
+                User::query()->where('email', $person['email'])->sole()->phone,
+                "{$person['name']} did not get the number config holds for them.",
+            );
+        }
+    }
+
+    /** The address sits beside a real name, in the shape the brief asked for. */
+    public function test_every_seeded_person_gets_a_named_gmail_address(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        foreach (User::all() as $user) {
+            $this->assertMatchesRegularExpression(
+                '/^[a-z]+\.[a-z]+@gmail\.com$/',
+                $user->email,
+                "{$user->name} was seeded with a placeholder address: {$user->email}",
+            );
+
+            $this->assertStringStartsWith(
+                strtolower(explode(' ', $user->name)[0]),
+                $user->email,
+                "{$user->name}'s address does not begin with their first name.",
+            );
+        }
+    }
+
+    /**
+     * The stand-in config above is what the other tests run against, so this is
+     * the only test that reads the numbers actually shipped. They are literals
+     * rather than env-derived, so it is stable in any environment.
+     *
+     * The prefix check lives here and not in PhilippineMobileNumber on purpose.
+     * The rule matches any leading 9 followed by nine digits, so it accepts
+     * +639000000000 - it validates the shape, never the allocation. That is the
+     * right split: prefixes are issued and retired over the years, and a
+     * validator that rejected a newly allocated one would be a worse bug than a
+     * seeder using an unused one. So the allocation is a data assertion, against
+     * this list, and never a rule in application code.
+     */
+    private const ALLOCATED_PREFIXES = ['918', '927', '936', '945', '955', '966', '971', '985'];
+
+    public function test_the_shipped_demo_config_carries_realistic_contact_details(): void
+    {
+        $this->assertCount(8, $this->shippedPeople);
+
+        foreach ($this->shippedPeople as $person) {
+            $this->assertTrue(
+                $this->isMobileNumber($person['phone']),
+                "{$person['name']} has a number the rule rejects: {$person['phone']}",
+            );
+
+            // +63, then ten digits of which the first three are the network.
+            $this->assertContains(
+                substr($person['phone'], 3, 3),
+                self::ALLOCATED_PREFIXES,
+                "{$person['name']} has a number on a prefix no network allocates: {$person['phone']}",
+            );
+        }
+
+        $numbers = array_column($this->shippedPeople, 'phone');
+        $this->assertSame($numbers, array_values(array_unique($numbers)), 'Two people share a number.');
+
+        // The owners are plain literals with no env() around them, so their
+        // addresses can be asserted where the picker accounts' cannot.
+        foreach (config('demo.owners') as $owner) {
+            $this->assertMatchesRegularExpression(
+                '/^[a-z]+\.[a-z]+@gmail\.com$/',
+                $owner['email'],
+                "{$owner['name']} has a placeholder address: {$owner['email']}",
+            );
+        }
+    }
+
+    private function isMobileNumber(string $value): bool
+    {
+        return Validator::make(
+            ['phone' => $value],
+            ['phone' => [new PhilippineMobileNumber]],
+        )->passes();
     }
 
     public function test_running_the_seeder_twice_changes_nothing(): void

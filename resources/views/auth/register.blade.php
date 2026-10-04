@@ -7,7 +7,7 @@
         <div class="auth-card">
             <div class="auth-card__head">
                 <a href="{{ url('/') }}" class="app-brand">
-                    <span class="app-brand__mark"><i class="bi bi-crosshair"></i></span>
+                    <span class="app-brand__mark"><svg class="app-brand__pin" viewBox="6 5 20 20" aria-hidden="true"><path d="M16 25 C13 21 9 18 9 12 A7 7 0 1 1 23 12 C23 18 19 21 16 25 Z"/></svg></span>
                     <span>{{ config('app.name', 'Pinpoint') }}</span>
                 </a>
 
@@ -36,6 +36,17 @@
                            name="email" value="{{ old('email') }}"
                            required autocomplete="email">
                     @error('email')
+                        <div class="invalid-feedback">{{ $message }}</div>
+                    @enderror
+                </div>
+
+                <div class="mb-3">
+                    <label for="phone" class="form-label">Mobile number</label>
+                    <input id="phone" type="tel"
+                           class="form-control @error('phone') is-invalid @enderror"
+                           name="phone" value="{{ old('phone') }}"
+                           required autocomplete="tel" placeholder="0917 123 4567">
+                    @error('phone')
                         <div class="invalid-feedback">{{ $message }}</div>
                     @enderror
                 </div>

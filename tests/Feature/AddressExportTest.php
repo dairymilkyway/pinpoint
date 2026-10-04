@@ -13,8 +13,8 @@ class AddressExportTest extends TestCase
 {
     use RefreshDatabase;
 
-    /** The directory table, which still carries the Owner column. */
-    private const COLUMNS = ['owner', 'label', 'line1', 'city', 'country', 'actions'];
+    /** The directory table, which still carries the Owner and Phone columns. */
+    private const COLUMNS = ['owner', 'owner_phone', 'label', 'line1', 'city', 'country', 'actions'];
 
     /**
      * One owner's page, where the Owner column would repeat a single name and a
@@ -195,7 +195,9 @@ class AddressExportTest extends TestCase
             'start' => 0,
             'length' => 10,
             'search' => ['value' => '', 'regex' => 'false'],
-            'order' => [['column' => 1, 'dir' => 'asc']],
+            // Whichever index Label sits at in this shape, so the export follows
+            // the same ordering the table does rather than a stale number.
+            'order' => [['column' => array_search('label', $columns), 'dir' => 'asc']],
             'columns' => [],
         ], ['action' => 'excel'], $overrides);
 

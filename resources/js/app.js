@@ -170,6 +170,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const label = modal.querySelector(modal.dataset.labelTarget);
             const value = modal.querySelector(modal.dataset.valueTarget);
 
+            // The value source resolves inside the trigger's own form, not the
+            // modal: the role dialog has to name the option the row's select is on.
+            const source = trigger.dataset.valueSource
+                ? trigger.form?.querySelector(trigger.dataset.valueSource)
+                : null;
+
+            const text = modal.querySelector(modal.dataset.textTarget);
+
             if (form && trigger.dataset.rowAction) {
                 form.action = trigger.dataset.rowAction;
             }
@@ -179,7 +187,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (value) {
-                value.value = trigger.dataset.rowValue ?? '';
+                value.value = source ? source.value : (trigger.dataset.rowValue ?? '');
+            }
+
+            if (text && source) {
+                text.textContent = source.selectedOptions[0]?.text ?? '';
             }
         });
     });

@@ -38,7 +38,7 @@ class AddressRequestRaised extends Notification
             'actor' => $request->user->name,
             'action' => $request->actionLabel(),
             'subject' => $request->subjectLabel(),
-            'url' => route('requests.index'),
+            'url' => route('requests.show', $request->id),
         ];
     }
 }

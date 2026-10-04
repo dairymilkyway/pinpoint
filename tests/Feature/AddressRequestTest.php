@@ -205,6 +205,53 @@ class AddressRequestTest extends TestCase
         $this->assertStringContainsString('Approve', $html);
     }
 
+    public function test_the_single_request_page_shows_the_proposal_and_its_state(): void
+    {
+        $customer = $this->customer();
+        $reader = $this->reader();
+        $address = Address::factory()->for($customer)->create(['label' => 'Home']);
+
+        $this->raise($customer, AddressRequest::TYPE_UPDATE, $address, [
+            'label' => 'Home',
+            'line1' => '18B Sunrise Drive',
+        ]);
+
+        $change = AddressRequest::query()->sole();
+
+        $html = $this->actingAs($reader)
+            ->get(route('requests.show', $change))
+            ->assertOk()
+            ->getContent();
+
+        // A notification lands here, so the page has to carry what the queue's
+        // review modal carries: what is asked for, by whom, and where it stands.
+        // Only the field that actually moves is listed - label is unchanged, and
+        // a table of twelve unchanged fields buries the one that matters.
+        $this->assertStringContainsString('Home', $html);
+        $this->assertStringContainsString('18B Sunrise Drive', $html);
+        $this->assertStringContainsString(e($customer->name), $html);
+        $this->assertStringContainsString('Pending', $html);
+    }
+
+    public function test_a_customer_cannot_open_another_accounts_request(): void
+    {
+        $mine = $this->customer();
+        $theirs = $this->customer();
+
+        $this->raise($theirs, AddressRequest::TYPE_CREATE, null, ['label' => 'Their Warehouse']);
+        $change = AddressRequest::query()->sole();
+
+        // The same visibleTo predicate the queue uses, so the single page is not
+        // a second door onto somebody else's request. The requester still opens
+        // their own, which is what keeps this from passing for the wrong reason.
+        $this->actingAs($mine)->get(route('requests.show', $change))->assertNotFound();
+
+        $this->actingAs($theirs)
+            ->get(route('requests.show', $change))
+            ->assertOk()
+            ->assertSee('Their Warehouse');
+    }
+
     public function test_a_customer_cannot_decide_a_request(): void
     {
         $customer = $this->customer();

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\ArchipelagoMap;
+use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -43,8 +44,22 @@ class PublicPagesTest extends TestCase
         $this->assertSame(1490, $counts['placed']);
         $this->assertSame(152, $counts['approximate']);
 
-        $this->assertSame(1490, substr_count($html, 'class="atlas__dot"'));
-        $this->assertSame(152, substr_count($html, 'class="atlas__dot atlas__dot--approx"'));
+        // Counted by prefix rather than by a closed class attribute. The pulse
+        // animation marks a random handful of dots on every render, so a count
+        // keyed off the exact class string would move between runs and fail
+        // intermittently. These two are invariants whatever the pick was.
+        $this->assertSame(1642, substr_count($html, 'class="atlas__dot'));
+        $this->assertSame(152, substr_count($html, 'atlas__dot--approx'));
+
+        // The pin count is fixed even though which points they land on is not:
+        // 12 are chosen per render, so the class appears 12 times however the
+        // pick fell. A pin is a separate element from the dots, so this counts
+        // independently of the two above.
+        $this->assertSame(12, substr_count($html, 'class="atlas__pin"'));
+
+        // Dots carry no inline style now that the pulse has gone, so this keeps
+        // the animation from creeping back onto the 1642 circles.
+        $this->assertStringNotContainsString('atlas__dot--pulse', $html);
     }
 
     /**
@@ -138,25 +153,162 @@ class PublicPagesTest extends TestCase
     }
 
     /**
-     * The atlas shell is shared by six auth views. The two-column treatment is
-     * sign-in only - if it ever reaches .auth-card itself, the reset and verify
-     * pages inherit a grid they were never laid out for.
+     * Every auth view is the same shell now: .auth-shell wrapping one
+     * .auth-card. Sign-in used to be the exception, seating a cartographic
+     * panel beside the form in a two-column grid.
      *
-     * This is the trap the redesign had to avoid, so it is held by a test rather
-     * than by a comment.
+     * The test this replaces held the trap that grid created - if it ever
+     * reached .auth-card, the reset and verify pages would inherit a layout
+     * they were never built for. The panel is gone, so that trap is gone with
+     * it. This holds the invariant that replaced it: no auth view grows a
+     * second column without failing here first.
      */
-    public function test_the_two_column_treatment_is_confined_to_sign_in(): void
+    public function test_every_auth_view_is_a_single_card_column(): void
     {
-        $this->assertStringContainsString(
-            'auth-split',
-            $this->get('/login')->assertOk()->getContent(),
-        );
+        foreach (['/login', '/register', '/password/reset'] as $path) {
+            $html = $this->get($path)->assertOk()->getContent();
 
-        // Register and the password-reset entry point both borrow the shell.
-        foreach (['/register', '/password/reset'] as $path) {
-            $this->get($path)->assertOk()
-                ->assertDontSee('auth-split', false)
-                ->assertSee('auth-card', false);
+            $this->assertStringContainsString('auth-shell', $html);
+            $this->assertStringContainsString('auth-card', $html);
+            $this->assertStringNotContainsString('auth-split', $html);
+            $this->assertStringNotContainsString('auth-plate', $html);
         }
+    }
+
+    /**
+     * The sign-in page no longer draws the archipelago. It is still drawn on
+     * the landing page - test_the_landing_draws_every_city_as_a_point covers
+     * that - so this only has to prove the panel left the login view, and that
+     * it is not quietly waiting in some shared partial.
+     */
+    public function test_the_sign_in_page_no_longer_carries_the_atlas(): void
+    {
+        $html = $this->get('/login')->assertOk()->getContent();
+
+        $this->assertStringNotContainsString('auth-plate', $html);
+        $this->assertStringNotContainsString('atlas__dot', $html);
+    }
+
+    /**
+     * The landing page used to set a title section of 'Pinpoint', which the
+     * layout then printed beside the app name - a tab reading
+     * "Pinpoint · Pinpoint". The layout now suppresses the separator when a
+     * view sets no title, so the front page gets the bare name and every other
+     * page keeps the "Page · Pinpoint" shape.
+     *
+     * Asserted against config('app.name') rather than a literal, because the
+     * tests only override APP_ENV: the name comes from .env.
+     */
+    public function test_the_page_title_never_repeats_the_product_name(): void
+    {
+        $name = config('app.name', 'Pinpoint');
+
+        $landing = $this->get('/')->assertOk()->getContent();
+        $this->assertStringContainsString("<title>{$name}</title>", $landing);
+        $this->assertStringNotContainsString("{$name} &middot; {$name}", $landing);
+
+        // A titled page still carries both halves, so the fix has not simply
+        // dropped the app name from every tab.
+        $login = $this->get('/login')->assertOk()->getContent();
+        $this->assertStringContainsString("<title>Sign in &middot; {$name}</title>", $login);
+    }
+
+    /**
+     * public/favicon.ico shipped as a 0-byte stub, so every browser asked for an
+     * icon, received nothing, and drew a blank tab. The non-empty assertion is
+     * the regression guard for exactly that: it would have failed before this
+     * change and passes only because the file now holds a real image.
+     */
+    public function test_the_icon_set_is_declared_and_every_file_is_non_empty(): void
+    {
+        foreach (['favicon.ico', 'favicon.svg', 'apple-touch-icon.png'] as $file) {
+            $path = public_path($file);
+
+            $this->assertFileExists($path, "{$file} is missing from public/");
+            $this->assertGreaterThan(0, filesize($path), "{$file} is empty");
+        }
+
+        // SVG is text, so its contents are worth checking too: a browser given an
+        // unparsable icon file shows nothing, and a valid one is cheap to assert.
+        $svg = file_get_contents(public_path('favicon.svg'));
+        $this->assertStringContainsString('<svg', $svg);
+        $this->assertStringContainsString('viewBox="0 0 32 32"', $svg);
+
+        $html = $this->get('/')->assertOk()->getContent();
+
+        // Every icon the head is supposed to declare, plus the theme colour that
+        // tints the mobile browser chrome to match the dark plate.
+        $this->assertStringContainsString('rel="icon"', $html);
+        $this->assertStringContainsString('favicon.ico', $html);
+        $this->assertStringContainsString('favicon.svg', $html);
+        $this->assertStringContainsString('rel="apple-touch-icon"', $html);
+        $this->assertStringContainsString('apple-touch-icon.png', $html);
+        $this->assertStringContainsString('<meta name="theme-color" content="#0d1014">', $html);
+    }
+
+    /**
+     * The brand mark in the header is the same pin as the favicon, and it is one
+     * shape rather than two drawings that resemble each other: the two `d`
+     * strings are compared byte for byte.
+     *
+     * Every view is checked on disk rather than by rendering, because the mark is
+     * copy-pasted into eight views and a render check would only ever reach the
+     * pages this test happens to request. The crosshair <i> it replaced must be
+     * gone everywhere - one straggler would leave a second, different mark in the
+     * header of whatever page it sits on.
+     */
+    public function test_the_brand_mark_is_the_pin_and_matches_the_favicon(): void
+    {
+        $svg = file_get_contents(public_path('favicon.svg'));
+        $this->assertSame(1, preg_match('/<path d="([^"]+)"/', $svg, $matches));
+        $pin = $matches[1];
+
+        $views = [
+            'landing.blade.php',
+            'layouts/app.blade.php',
+            'auth/login.blade.php',
+            'auth/register.blade.php',
+            'auth/verify.blade.php',
+            'auth/passwords/confirm.blade.php',
+            'auth/passwords/email.blade.php',
+            'auth/passwords/reset.blade.php',
+        ];
+
+        foreach ($views as $view) {
+            $source = file_get_contents(resource_path("views/{$view}"));
+
+            $this->assertStringContainsString('app-brand__pin', $source, "{$view} has no pin mark");
+            $this->assertStringContainsString($pin, $source, "{$view}'s pin differs from the favicon");
+            $this->assertStringNotContainsString('bi-crosshair', $source, "{$view} still draws the old crosshair");
+        }
+
+        // And the same mark reaches the browser, not just the source.
+        foreach (['/', '/login', '/register'] as $path) {
+            $html = $this->get($path)->assertOk()->getContent();
+
+            $this->assertStringContainsString('app-brand__pin', $html, "{$path} renders no pin mark");
+            $this->assertStringContainsString($pin, $html, "{$path}'s pin differs from the favicon");
+        }
+    }
+
+    /**
+     * Two screens were labelled wrongly. /addresses is the front door for a
+     * reader of the whole book - it lists owners, not addresses - and
+     * /addresses/create with no owner chosen is the picker that asks whose
+     * address it is, not an editor.
+     *
+     * Reached with a Superadmin, since it takes a reader to see the users list
+     * rather than their own book.
+     */
+    public function test_the_reader_front_door_and_the_owner_picker_name_themselves(): void
+    {
+        $name = config('app.name', 'Pinpoint');
+        $superadmin = User::factory()->create()->assignRole('Superadmin');
+
+        $html = $this->actingAs($superadmin)->get(route('addresses.index'))->assertOk()->getContent();
+        $this->assertStringContainsString("<title>Address owners &middot; {$name}</title>", $html);
+
+        $picked = $this->actingAs($superadmin)->get(route('addresses.create'))->assertOk()->getContent();
+        $this->assertStringContainsString("<title>Choose an owner &middot; {$name}</title>", $picked);
     }
 }

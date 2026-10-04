@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <title>@yield('title', 'Pinpoint') &middot; {{ config('app.name', 'Pinpoint') }}</title>
+    <title>@hasSection('title')@yield('title') &middot; {{ config('app.name', 'Pinpoint') }}@else{{ config('app.name', 'Pinpoint') }}@endif</title>
 
     {{-- The stored theme choice lives in localStorage, so the server cannot
          render it. This runs before the stylesheet and the bundle below, so
@@ -69,6 +69,11 @@
         })();
     </script>
 
+    <link rel="icon" href="{{ asset('favicon.ico') }}" sizes="any">
+    <link rel="icon" href="{{ asset('favicon.svg') }}" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="{{ asset('apple-touch-icon.png') }}">
+    <meta name="theme-color" content="#0d1014">
+
     @vite(['resources/sass/app.scss', 'resources/js/app.js'])
 </head>
 <body>
@@ -81,7 +86,7 @@
     <div class="app-shell">
         <aside class="app-sidebar">
             <a href="{{ route('addresses.index') }}" class="app-brand">
-                <span class="app-brand__mark"><i class="bi bi-crosshair"></i></span>
+                <span class="app-brand__mark"><svg class="app-brand__pin" viewBox="6 5 20 20" aria-hidden="true"><path d="M16 25 C13 21 9 18 9 12 A7 7 0 1 1 23 12 C23 18 19 21 16 25 Z"/></svg></span>
                 <span>{{ config('app.name', 'Pinpoint') }}</span>
             </a>
 
@@ -107,6 +112,15 @@
                         <span>Requests</span>
                     </a>
                 </li>
+                @if (auth()->user()?->hasRole(\App\Rbac::CUSTOMER_ROLE))
+                    <li>
+                        <a class="app-nav__link {{ request()->routeIs('account.*') ? 'is-active' : '' }}"
+                           href="{{ route('account.edit') }}">
+                            <i class="bi bi-person-gear"></i>
+                            <span>Account</span>
+                        </a>
+                    </li>
+                @endif
                 @can('audit.view')
                     <li>
                         <a class="app-nav__link {{ request()->routeIs('audit.*') ? 'is-active' : '' }}"

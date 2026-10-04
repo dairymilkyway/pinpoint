@@ -88,6 +88,17 @@ class AddressRequestController extends Controller
         ]);
     }
 
+    /** One request on its own page, scoped so a Customer reaches only their own. */
+    public function show(Request $request, string $addressRequest): View
+    {
+        return view('requests.show', [
+            'change' => AddressRequest::query()
+                ->visibleTo($request->user())
+                ->with(['user', 'address', 'decider'])
+                ->findOrFail($addressRequest),
+        ]);
+    }
+
     public function store(StoreAddressChangeRequest $request): RedirectResponse
     {
         $data = $request->validated();

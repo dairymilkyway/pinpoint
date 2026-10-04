@@ -116,11 +116,13 @@
                                         <span class="text-dim small">Locked to this account.</span>
                                     </div>
                                 @else
-                                    {{-- Three controls, one line. The two forms are siblings
-                                         rather than one, because a form cannot be nested.
-                                         The select is constrained in app.scss (.rbac-actions)
-                                         so Bootstrap's .form-select { width: 100% } does not
-                                         claim the flex line and push the buttons under it. --}}
+                                    {{-- Three controls, one line. None submit on click: each opens a confirmation
+                                         dialog declared in rbac/partials/confirm-modals.blade.php, where the row's
+                                         action and name are handed over. The role form stays because the dialog
+                                         reads the selected role out of its select; Reactivate is unconfirmed on
+                                         purpose - it is the undo direction. The select is constrained in
+                                         app.scss (.rbac-actions) so Bootstrap's .form-select { width: 100% } does
+                                         not claim the flex line and push the buttons under it. --}}
                                     <div class="action-bar rbac-actions">
                                         <form method="POST" action="{{ route('rbac.users.role', $user) }}">
                                             @csrf
@@ -133,7 +135,11 @@
                                                     </option>
                                                 @endforeach
                                             </select>
-                                            <button type="submit" class="btn btn-outline-secondary text-nowrap">Update</button>
+                                            <button type="button" class="btn btn-outline-secondary text-nowrap"
+                                                    data-bs-toggle="modal" data-bs-target="#rbacRoleModal"
+                                                    data-row-action="{{ route('rbac.users.role', $user) }}"
+                                                    data-row-label="{{ $user->name }}"
+                                                    data-value-source="select[name=role]">Update</button>
                                         </form>
 
                                         @if ($deactivated)
@@ -142,10 +148,10 @@
                                                 <button type="submit" class="btn btn-outline-secondary text-nowrap">Reactivate</button>
                                             </form>
                                         @else
-                                            <form method="POST" action="{{ route('rbac.users.deactivate', $user) }}">
-                                                @csrf
-                                                <button type="submit" class="btn btn-danger text-nowrap">Deactivate</button>
-                                            </form>
+                                            <button type="button" class="btn btn-danger text-nowrap"
+                                                    data-bs-toggle="modal" data-bs-target="#rbacDeactivateModal"
+                                                    data-row-action="{{ route('rbac.users.deactivate', $user) }}"
+                                                    data-row-label="{{ $user->name }}">Deactivate</button>
                                         @endif
                                     </div>
                                 @endif
@@ -156,4 +162,6 @@
             </table>
         </div>
     </div>
+
+    @include('rbac.partials.confirm-modals')
 @endsection

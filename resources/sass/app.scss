@@ -281,6 +281,12 @@ a {
     font-size: 1.125rem;
 }
 
+.app-brand__pin {
+    width: 1em;
+    height: 1em;
+    fill: currentColor;
+}
+
 .app-nav {
     display: flex;
     flex-direction: row;
@@ -1536,6 +1542,11 @@ textarea.form-control {
    Shadow-3, radius 10px. Panels are flat; these are the surfaces that leave the
    page plane.
    ========================================================================== */
+
+/* -centered makes .modal-dialog a flex container, so a <form> child shrink-wraps
+   and drifts left of the centred band; the request modals nest the form inside
+   .modal-content and never had the bug, so this keeps both shapes working. */
+.modal-dialog > form { width: 100%; }
 
 .modal-content {
     background-color: var(--ink-900);

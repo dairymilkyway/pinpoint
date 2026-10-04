@@ -35,7 +35,7 @@ class AddressRequestSettled extends Notification
             'action' => $request->actionLabel(),
             'subject' => $request->subjectLabel(),
             'decision' => $request->status,
-            'url' => route('requests.index'),
+            'url' => route('requests.show', $request->id),
         ];
     }
 }

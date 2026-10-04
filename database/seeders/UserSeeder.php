@@ -31,7 +31,7 @@ class UserSeeder extends Seeder
                 );
             }
 
-            $this->upsert($account['email'], $account['name'], $account['password'], $account['role']);
+            $this->upsert($account['email'], $account['name'], $account['password'], $account['role'], $account['phone']);
         }
 
         $password = config('demo.owners_password');
@@ -40,19 +40,19 @@ class UserSeeder extends Seeder
             throw new RuntimeException('SEED_DEMO_PASSWORD must be set in .env before seeding.');
         }
 
-        foreach (config('demo.owners', []) as $name => $email) {
-            $this->upsert($email, $name, $password, Rbac::CUSTOMER_ROLE);
+        foreach (config('demo.owners', []) as $owner) {
+            $this->upsert($owner['email'], $owner['name'], $password, Rbac::CUSTOMER_ROLE, $owner['phone']);
         }
     }
 
-    private function upsert(string $email, string $name, string $password, string $role): void
+    private function upsert(string $email, string $name, string $password, string $role, string $phone): void
     {
         // withTrashed is required: a deactivated account keeps the email on its
         // row, so without it updateOrCreate misses the trashed user and the
         // insert then collides on the unique email index.
         $user = User::withTrashed()->updateOrCreate(
             ['email' => $email],
-            ['name' => $name, 'password' => $password],
+            ['name' => $name, 'password' => $password, 'phone' => $phone],
         );
 
         // Not mass assignable on the model, and there is no verification step in

@@ -28,20 +28,23 @@ return [
         [
             'role' => Rbac::SUPERADMIN_ROLE,
             'name' => 'Ana Reyes',
-            'email' => env('SEED_ADMIN_EMAIL'),
+            'email' => env('SEED_ADMIN_EMAIL', 'ana.reyes@gmail.com'),
             'password' => env('SEED_ADMIN_PASSWORD'),
+            'phone' => '+639181234567',
         ],
         [
             'role' => Rbac::ADMIN_ROLE,
             'name' => 'Miguel Santos',
-            'email' => env('SEED_MANAGER_EMAIL', 'manager@example.com'),
+            'email' => env('SEED_MANAGER_EMAIL', 'miguel.santos@gmail.com'),
             'password' => env('SEED_DEMO_PASSWORD'),
+            'phone' => '+639273456789',
         ],
         [
             'role' => Rbac::CUSTOMER_ROLE,
             'name' => 'Liza Mendoza',
-            'email' => env('SEED_VIEWER_EMAIL', 'viewer@example.com'),
+            'email' => env('SEED_VIEWER_EMAIL', 'liza.mendoza@gmail.com'),
             'password' => env('SEED_DEMO_PASSWORD'),
+            'phone' => '+639365432109',
         ],
     ],
 
@@ -55,13 +58,16 @@ return [
     /*
     | Extra address owners, seeded so the directory is not owned by three
     | accounts. They share the demo password and are not offered on the picker.
+    | The mobile numbers are the canonical form the app stores - a real
+    | allocation, so nothing in the directory reads as a placeholder. Held here
+    | alongside the name they belong to rather than derived in the seeder.
     */
     'owners' => [
-        'Juan Dela Cruz' => 'juan.delacruz@example.com',
-        'Maria Santos' => 'maria.santos@example.com',
-        'Jose Ramirez' => 'jose.ramirez@example.com',
-        'Rosario Villanueva' => 'rosario.villanueva@example.com',
-        'Antonio Bautista' => 'antonio.bautista@example.com',
+        ['name' => 'Juan Dela Cruz', 'email' => 'juan.delacruz@gmail.com', 'phone' => '+639451122334'],
+        ['name' => 'Maria Santos', 'email' => 'maria.santos@gmail.com', 'phone' => '+639558899001'],
+        ['name' => 'Jose Ramirez', 'email' => 'jose.ramirez@gmail.com', 'phone' => '+639667788990'],
+        ['name' => 'Rosario Villanueva', 'email' => 'rosario.villanueva@gmail.com', 'phone' => '+639711223344'],
+        ['name' => 'Antonio Bautista', 'email' => 'antonio.bautista@gmail.com', 'phone' => '+639855566778'],
     ],
 
 ];

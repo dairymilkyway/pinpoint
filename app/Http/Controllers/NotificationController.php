@@ -20,21 +20,21 @@ class NotificationController extends Controller
         ]);
     }
 
-    /** Marks one read and follows the link it carries. */
+    /** Marks one read and lands on its detail page. */
     public function read(Request $request, string $notification): RedirectResponse
     {
         $record = $request->user()->notifications()->whereKey($notification)->firstOrFail();
 
         $record->markAsRead();
 
-        $url = (string) ($record->data['url'] ?? '');
+        return redirect()->route('notifications.show', $record->id);
+    }
 
-        // Only ever back into this app. The links are ours, but a redirect built
-        // from stored data is the shape of an open redirect, and it costs one
-        // comparison to close.
-        return redirect()->to(
-            str_starts_with($url, url('/')) ? $url : route('home'),
-        );
+    public function show(Request $request, string $notification): View
+    {
+        return view('notifications.show', [
+            'notification' => $request->user()->notifications()->whereKey($notification)->firstOrFail(),
+        ]);
     }
 
     public function readAll(Request $request): RedirectResponse

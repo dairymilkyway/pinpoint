@@ -1,17 +1,23 @@
 @extends('layouts.app')
 
-@section('title', 'Pinpoint')
-
 @section('content')
     @php
         $map = \App\ArchipelagoMap::points();
-        $regionCount = count(\App\Geo\PhLocations::regions());
+
+        // Twelve pins pop up across the map like markers being dropped, chosen fresh on
+        // every render so the map is never quite the same twice. Each pin carries its own
+        // delay, so they arrive one at a time rather than all together.
+        $pinDelay = [];
+
+        foreach ((array) array_rand($map['points'], 12) as $index) {
+            $pinDelay[$index] = mt_rand(0, 60) / 10;
+        }
     @endphp
 
     <div class="landing">
         <div class="landing__nav">
             <span class="app-brand mb-0">
-                <span class="app-brand__mark"><i class="bi bi-crosshair"></i></span>
+                <span class="app-brand__mark"><svg class="app-brand__pin" viewBox="6 5 20 20" aria-hidden="true"><path d="M16 25 C13 21 9 18 9 12 A7 7 0 1 1 23 12 C23 18 19 21 16 25 Z"/></svg></span>
                 <span>{{ config('app.name', 'Pinpoint') }}</span>
             </span>
 
@@ -36,14 +42,13 @@
         <div class="landing__inner">
             <div class="landing__hero">
                 <div class="landing__copy">
-                    <p class="eyebrow mb-3">Philippine addresses</p>
+                    <p class="eyebrow mb-3">Pinpoint</p>
 
                     <h1 class="landing__title">Every address your team needs, in one place.</h1>
 
                     <p class="landing__lede">
-                        A shared list of customer, branch and site addresses. Superadmins, admins
-                        and customers each see only what they should, and every change is checked
-                        before it is saved.
+                        A shared list of customer, branch and site addresses - added one at a time,
+                        or imported from a spreadsheet, and kept straight as the list grows.
                     </p>
 
                     <div class="landing__actions">
@@ -63,35 +68,28 @@
                              preserveAspectRatio="xMidYMid meet"
                              role="img"
                              aria-label="A map of the Philippines as {{ $map['counts']['total'] }} city dots: {{ $map['counts']['placed'] }} in their exact spots and {{ $map['counts']['approximate'] }} shown at the centre of their province or region.">
-                            @foreach ($map['points'] as $point)
-                                @if ($point['approximate'])
-                                    <circle class="atlas__dot atlas__dot--approx" cx="{{ $point['x'] }}" cy="{{ $point['y'] }}" r="3.4" />
-                                @else
-                                    <circle class="atlas__dot" cx="{{ $point['x'] }}" cy="{{ $point['y'] }}" r="3.2" />
-                                @endif
+                            @foreach ($map['points'] as $index => $point)
+                                @php
+                                    $dotClass = 'atlas__dot';
+
+                                    if ($point['approximate']) {
+                                        $dotClass .= ' atlas__dot--approx';
+                                    }
+                                @endphp
+                                <circle class="{{ $dotClass }}"
+                                        cx="{{ $point['x'] }}" cy="{{ $point['y'] }}"
+                                        r="{{ $point['approximate'] ? 3.4 : 3.2 }}" />
+                            @endforeach
+
+                            @foreach ($pinDelay as $index => $delay)
+                                <g class="atlas__pin" transform="translate({{ $map['points'][$index]['x'] }}, {{ $map['points'][$index]['y'] }})">
+                                    <path style="animation-delay: {{ $delay }}s"
+                                          d="M 0 0 C -6 -8 -14 -14 -14 -26 A 14 14 0 1 1 14 -26 C 14 -14 6 -8 0 0 Z" />
+                                </g>
                             @endforeach
                         </svg>
                     </div>
 
-                    <figcaption class="atlas-caption">
-                        <span class="mono">{{ $regionCount }}</span> regions and
-                        <span class="mono">{{ $map['counts']['total'] }}</span> cities.
-                        <span class="mono">{{ $map['counts']['placed'] }}</span> are shown at their
-                        exact location; <span class="mono">{{ $map['counts']['approximate'] }}</span>
-                        have no location on record and are shown at the centre of
-                        their province or region.
-
-                        <span class="landing__key">
-                            <span class="landing__key-item">
-                                <span class="landing__swatch" aria-hidden="true"></span>
-                                Exact location
-                            </span>
-                            <span class="landing__key-item">
-                                <span class="landing__swatch landing__swatch--approx" aria-hidden="true"></span>
-                                Approximate location
-                            </span>
-                        </span>
-                    </figcaption>
                 </figure>
             </div>
 
@@ -107,11 +105,11 @@
 
                 <li>
                     <p class="feature__index">02</p>
-                    <h2 class="feature__title">Real permissions</h2>
+                    <h2 class="feature__title">Checked before it saves</h2>
                     <p class="feature__body">
-                        Superadmins, admins and customers each see and change only what they should.
-                        Hiding a button is never the only protection; the same rule applies when a
-                        change is saved.
+                        A customer cannot change the book directly. They file a request instead, and a
+                        reader approves or rejects it - so their edit lands only once someone has
+                        agreed to it.
                     </p>
                 </li>
 

@@ -30,6 +30,9 @@ class UserDataTable extends DataTable
     {
         return (new EloquentDataTable($query))
             ->addColumn('addresses', fn (User $user) => $user->addresses_count)
+            // Real column on users, and an absent one renders the dash the
+            // rest of the codebase uses rather than a blank cell.
+            ->editColumn('phone', fn (User $user) => $user->phone ?? '-')
             // A deactivated owner is listed like any other, so the row has to say
             // so. 'name' is user input and this cell is now raw HTML, so it is
             // escaped here - an unescaped name would be an XSS hole.
@@ -78,6 +81,7 @@ class UserDataTable extends DataTable
         return [
             Column::make('name'),
             Column::make('email'),
+            Column::make('phone'),
             Column::computed('addresses')
                 ->title('Addresses')
                 ->searchable(false)

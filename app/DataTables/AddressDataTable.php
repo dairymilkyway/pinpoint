@@ -95,6 +95,18 @@ class AddressDataTable extends DataTable
                 ->orderColumn('owner', fn (QueryBuilder $query, string $order) => $query->orderBy(
                     User::withTrashed()->select('name')->whereColumn('users.id', 'addresses.user_id'),
                     $order,
+                ))
+                // The owner's phone follows the Owner column exactly: same
+                // visibility, same abs. it belongs to $row->user, so it is the
+                // same trio. withTrashed in orderColumn, or a deactivated
+                // owner's NULL phone sorts their rows to the top.
+                ->addColumn('owner_phone', fn (Address $address) => $address->user?->phone ?? '-')
+                ->filterColumn('owner_phone', function (QueryBuilder $query, string $keyword) {
+                    $query->whereHas('user', fn ($q) => $q->withTrashed()->where('phone', 'like', "%{$keyword}%"));
+                })
+                ->orderColumn('owner_phone', fn (QueryBuilder $query, string $order) => $query->orderBy(
+                    User::withTrashed()->select('phone')->whereColumn('users.id', 'addresses.user_id'),
+                    $order,
                 ));
         }
 
@@ -120,7 +132,7 @@ class AddressDataTable extends DataTable
             ->columns($this->getColumns())
             ->minifiedAjax()
             // Label, whichever index it lands on once the Owner column is in or out.
-            ->orderBy($this->scopedToOwner() ? 0 : 1)
+            ->orderBy($this->scopedToOwner() ? 0 : 2)
             ->lengthMenu([10, 25, 50, 100])
             ->dom('Bfrtip')
             // DataTables 2 ignores the dom string for its indicator and injects a
@@ -221,7 +233,7 @@ class AddressDataTable extends DataTable
         // every row, so it is dropped rather than filled with a constant.
         $owner = $this->scopedToOwner()
             ? []
-            : [Column::make('owner')->title('Owner')];
+            : [Column::make('owner')->title('Owner'), Column::make('owner_phone')->title('Phone')];
 
         return [
             ...$owner,

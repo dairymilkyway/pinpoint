@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AccountController;
 use App\Http\Controllers\AddressController;
 use App\Http\Controllers\AddressImportController;
 use App\Http\Controllers\AddressRequestController;
@@ -23,6 +24,11 @@ Auth::routes();
 Route::middleware('auth')->group(function () {
     Route::get('/home', [DashboardController::class, 'index'])->name('home');
     Route::get('home/map', [DashboardController::class, 'map'])->name('home.map');
+
+    Route::get('account', [AccountController::class, 'edit'])->name('account.edit');
+    Route::put('account', [AccountController::class, 'update'])->name('account.update');
+    Route::put('account/password', [AccountController::class, 'updatePassword'])->name('account.password');
+    Route::delete('account', [AccountController::class, 'destroy'])->name('account.destroy');
 
     Route::get('addresses', [AddressController::class, 'index'])->name('addresses.index');
     Route::get('addresses/create', [AddressController::class, 'create'])->name('addresses.create');
@@ -50,6 +56,8 @@ Route::middleware('auth')->group(function () {
     // reader's queue.
     Route::get('requests', [AddressRequestController::class, 'index'])->name('requests.index');
     Route::get('requests/create', [AddressRequestController::class, 'create'])->name('requests.create');
+    // After requests/create, or 'create' is read as a model id.
+    Route::get('requests/{addressRequest}', [AddressRequestController::class, 'show'])->name('requests.show');
     Route::post('requests', [AddressRequestController::class, 'store'])->name('requests.store');
     Route::post('requests/{addressRequest}/approve', [AddressRequestController::class, 'approve'])->name('requests.approve');
     Route::post('requests/{addressRequest}/reject', [AddressRequestController::class, 'reject'])->name('requests.reject');
@@ -57,6 +65,7 @@ Route::middleware('auth')->group(function () {
     Route::get('notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::post('notifications/read-all', [NotificationController::class, 'readAll'])->name('notifications.readAll');
     Route::post('notifications/{notification}/read', [NotificationController::class, 'read'])->name('notifications.read');
+    Route::get('notifications/{notification}', [NotificationController::class, 'show'])->name('notifications.show');
 
     // No model to write a policy about, so the gate is the middleware.
     Route::get('audit', [AuditLogController::class, 'index'])

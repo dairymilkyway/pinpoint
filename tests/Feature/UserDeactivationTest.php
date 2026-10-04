@@ -53,6 +53,44 @@ class UserDeactivationTest extends TestCase
         $this->assertGuest();
     }
 
+    /**
+     * The stock message says the credentials do not match, which is untrue here:
+     * the row exists and the account is one click from coming back. The reader is
+     * told the real reason - but only once the password proves the account is
+     * theirs.
+     *
+     * The wrong-password case is the discriminator, and the one to red-check:
+     * drop the Hash::check and it gets the deactivated message too, which turns
+     * the form into a way to ask "does this address have an account?".
+     */
+    public function test_a_deactivated_account_is_told_why_once_the_password_is_confirmed(): void
+    {
+        $user = User::factory()->create(['email' => 'closed@example.com']);
+
+        $user->delete();
+
+        $this->assertSoftDeleted('users', ['id' => $user->id]);
+
+        $this->post(route('login'), [
+            'email' => 'closed@example.com',
+            'password' => 'password',
+        ])->assertSessionHasErrors([
+            'email' => 'This account has been deactivated. Ask an administrator to reactivate it.',
+        ]);
+
+        $this->assertGuest();
+
+        // Right address with the wrong password, and no account at all, both keep
+        // the stock wording - so the form answers nothing about who has an account.
+        foreach ([
+            ['email' => 'closed@example.com', 'password' => 'not-the-password'],
+            ['email' => 'nobody@example.com', 'password' => 'password'],
+        ] as $credentials) {
+            $this->post(route('login'), $credentials)
+                ->assertSessionHasErrors(['email' => trans('auth.failed')]);
+        }
+    }
+
     public function test_reactivating_a_user_restores_sign_in(): void
     {
         $user = User::factory()->create(['email' => 'back@example.com']);

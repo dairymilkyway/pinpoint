@@ -32,7 +32,7 @@ class AddressRequestDecided extends Notification
             'subject' => $request->subjectLabel(),
             'decision' => $request->status,
             'note' => $request->decision_note,
-            'url' => route('requests.index'),
+            'url' => route('requests.show', $request->id),
         ];
     }
 }

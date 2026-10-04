@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Pinpoint">
+    <!-- The plate that filled the canvas is gone, so the ground is transparent. The hole is cut with a
+         mask rather than punched into the path with fill-rule: PublicPagesTest compares this exact `d`
+         string against the eight inline brand marks in resources/views, so a second subpath here would
+         desynchronise the two. A plain near-black circle would instead vanish on a dark tab bar. -->
+
+    <mask id="pin-hole" maskUnits="userSpaceOnUse" x="0" y="0" width="32" height="32">
+        <rect width="32" height="32" fill="#fff"/>
+        <circle cx="16" cy="12" r="2.6" fill="#000"/>
+    </mask>
+    <path d="M16 25 C13 21 9 18 9 12 A7 7 0 1 1 23 12 C23 18 19 21 16 25 Z" fill="#f7bc63" mask="url(#pin-hole)"/>
+</svg>

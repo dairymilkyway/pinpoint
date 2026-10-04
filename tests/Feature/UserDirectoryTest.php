@@ -12,7 +12,7 @@ class UserDirectoryTest extends TestCase
 {
     use RefreshDatabase;
 
-    private const COLUMNS = ['name', 'email', 'addresses', 'actions'];
+    private const COLUMNS = ['name', 'email', 'phone', 'addresses', 'actions'];
 
     protected function setUp(): void
     {
@@ -107,6 +107,27 @@ class UserDirectoryTest extends TestCase
         $this->assertArrayNotHasKey('role', $row);
     }
 
+    /**
+     * The reader-side half of the phone number. A reader has no other way to
+     * reach it: one owner's page shows the number in its identity header rather
+     * than as a column, so this list is the only place it is tabular.
+     */
+    public function test_the_list_carries_the_owners_mobile_number(): void
+    {
+        $reader = $this->userWithRole('Superadmin');
+
+        User::factory()->create(['name' => 'Alice Anders', 'phone' => '+639171234567']);
+
+        // An account that predates the column. The row still has to say
+        // something, so it carries the dash the rest of the codebase uses.
+        User::factory()->create(['name' => 'No Number', 'phone' => null]);
+
+        $rows = collect($this->rows($reader)['data']);
+
+        $this->assertSame('+639171234567', $rows->firstWhere('name', 'Alice Anders')['phone']);
+        $this->assertSame('-', $rows->firstWhere('name', 'No Number')['phone']);
+    }
+
     public function test_the_list_search_filters_by_name(): void
     {
         $reader = $this->userWithRole('Superadmin');
@@ -153,7 +174,11 @@ class UserDirectoryTest extends TestCase
     {
         $reader = $this->userWithRole('Superadmin');
 
-        $alice = User::factory()->create(['name' => 'Alice Anders', 'email' => 'alice@example.test']);
+        $alice = User::factory()->create([
+            'name' => 'Alice Anders',
+            'email' => 'alice@example.test',
+            'phone' => '+639171234567',
+        ]);
         Address::factory()->count(2)->for($alice)->create();
         Address::factory()->count(4)->for($reader)->create();
 
@@ -162,6 +187,10 @@ class UserDirectoryTest extends TestCase
 
         $this->assertStringContainsString('Alice Anders', $html);
         $this->assertStringContainsString('alice@example.test', $html);
+        // The owner's page is the one place the number is shown while scoped to
+        // them: the table drops the Phone column there, so this header line is
+        // what a reader actually reads it off.
+        $this->assertStringContainsString('+639171234567', $html);
         $this->assertStringContainsString(route('addresses.index'), $html);
 
         // The four held by the reader are not on Alice's page.
