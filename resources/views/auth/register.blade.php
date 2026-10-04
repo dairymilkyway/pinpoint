@@ -7,7 +7,7 @@
         <div class="auth-card">
             <div class="auth-card__head">
                 <a href="{{ url('/') }}" class="app-brand">
-                    <span class="app-brand__mark"><svg class="app-brand__pin" viewBox="6 5 20 20" aria-hidden="true"><path d="M16 25 C13 21 9 18 9 12 A7 7 0 1 1 23 12 C23 18 19 21 16 25 Z"/></svg></span>
+                    <span class="app-brand__mark"><svg class="app-brand__pin" viewBox="6 5 20 20" aria-hidden="true"><path d="M16 25 C13 21 9 18 9 12 A7 7 0 1 1 23 12 C23 18 19 21 16 25 Z M16 9.4 A2.6 2.6 0 1 1 16 14.6 A2.6 2.6 0 1 1 16 9.4 Z" fill-rule="evenodd"/></svg></span>
                     <span>{{ config('app.name', 'Pinpoint') }}</span>
                 </a>
 
@@ -23,7 +23,7 @@
                     <input id="name" type="text"
                            class="form-control @error('name') is-invalid @enderror"
                            name="name" value="{{ old('name') }}"
-                           required autocomplete="name" autofocus>
+                           required autocomplete="name" placeholder="Juan Dela Cruz" autofocus>
                     @error('name')
                         <div class="invalid-feedback">{{ $message }}</div>
                     @enderror
@@ -34,7 +34,7 @@
                     <input id="email" type="email"
                            class="form-control @error('email') is-invalid @enderror"
                            name="email" value="{{ old('email') }}"
-                           required autocomplete="email">
+                           required autocomplete="email" placeholder="juan.delacruz@gmail.com">
                     @error('email')
                         <div class="invalid-feedback">{{ $message }}</div>
                     @enderror
@@ -55,7 +55,7 @@
                     <label for="password" class="form-label">Password</label>
                     <input id="password" type="password"
                            class="form-control @error('password') is-invalid @enderror"
-                           name="password" required autocomplete="new-password">
+                           name="password" required autocomplete="new-password" placeholder="At least 8 characters">
                     @error('password')
                         <div class="invalid-feedback">{{ $message }}</div>
                     @enderror

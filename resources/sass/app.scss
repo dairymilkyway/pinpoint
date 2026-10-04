@@ -266,17 +266,11 @@ a {
     color: var(--text);
 }
 
-/* One amber mark, not three: the pin is the "measured and placed" glyph, so the
-   chip around it stays neutral and the accent is not spent on a background and
-   a border at once. */
 .app-brand__mark {
     display: grid;
     place-items: center;
     width: 2rem;
     height: 2rem;
-    border-radius: var(--r-mark);
-    background: var(--ink-800);
-    border: 1px solid var(--line-strong);
     color: var(--amber-text);
     font-size: 1.125rem;
 }

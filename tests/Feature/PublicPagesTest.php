@@ -230,9 +230,12 @@ class PublicPagesTest extends TestCase
 
         // SVG is text, so its contents are worth checking too: a browser given an
         // unparsable icon file shows nothing, and a valid one is cheap to assert.
+        // The viewBox is the tight crop around the glyph, shared with the eight
+        // inline brand marks - a loose canvas here renders the pin small in the
+        // tab while the header draws it large.
         $svg = file_get_contents(public_path('favicon.svg'));
         $this->assertStringContainsString('<svg', $svg);
-        $this->assertStringContainsString('viewBox="0 0 32 32"', $svg);
+        $this->assertStringContainsString('viewBox="6 5 20 20"', $svg);
 
         $html = $this->get('/')->assertOk()->getContent();
 
@@ -263,6 +266,12 @@ class PublicPagesTest extends TestCase
         $this->assertSame(1, preg_match('/<path d="([^"]+)"/', $svg, $matches));
         $pin = $matches[1];
 
+        // The centre hole is a second subpath, so it only subtracts while this is
+        // present. Its absence would not change the `d` the loop below compares -
+        // the mark would simply fill solid and stop looking like the favicon,
+        // which is exactly how the two drifted apart before.
+        $this->assertStringContainsString('fill-rule="evenodd"', $svg, 'The favicon pin would fill solid.');
+
         $views = [
             'landing.blade.php',
             'layouts/app.blade.php',
@@ -279,6 +288,7 @@ class PublicPagesTest extends TestCase
 
             $this->assertStringContainsString('app-brand__pin', $source, "{$view} has no pin mark");
             $this->assertStringContainsString($pin, $source, "{$view}'s pin differs from the favicon");
+            $this->assertStringContainsString('fill-rule="evenodd"', $source, "{$view}'s pin would fill solid");
             $this->assertStringNotContainsString('bi-crosshair', $source, "{$view} still draws the old crosshair");
         }
 
@@ -310,5 +320,39 @@ class PublicPagesTest extends TestCase
 
         $picked = $this->actingAs($superadmin)->get(route('addresses.create'))->assertOk()->getContent();
         $this->assertStringContainsString("<title>Choose an owner &middot; {$name}</title>", $picked);
+    }
+
+    /**
+     * The register form used to hint only one of its five fields: the mobile
+     * number was the only one that said what a valid answer looked like, so a
+     * first-time visitor guessed at the name, the email, and how long the
+     * password had to be - and a too-short password was only discovered after
+     * submitting.
+     *
+     * The password hint states the rule in words rather than showing an example,
+     * because RegisterController::validator() requires min:8. This pins the hint
+     * only - it does not read the rule, so if the minimum ever moves, nothing
+     * here fails and the hint is worth moving by hand to match.
+     */
+    public function test_the_register_form_hints_what_each_field_expects(): void
+    {
+        $html = $this->get('/register')->assertOk()->getContent();
+
+        foreach ([
+            'Juan Dela Cruz',           // the name the seeded book actually uses
+            'juan.delacruz@gmail.com',  // the firstname.lastname@gmail.com shape
+            'At least 8 characters',    // the min:8 in RegisterController
+        ] as $hint) {
+            $this->assertStringContainsString('placeholder="'.$hint.'"', $html, "The register form does not hint \"{$hint}\"");
+        }
+
+        // The phone hint was the model for the other three and must survive them.
+        $this->assertStringContainsString('placeholder="0917 123 4567"', $html);
+
+        // Confirm password is the one field deliberately left bare: its label
+        // already says what it is and the answer is the field directly above, so
+        // a hint there would only repeat it.
+        $this->assertSame(1, preg_match('/<input id="password-confirm"[^>]*>/', $html, $matches));
+        $this->assertStringNotContainsString('placeholder', $matches[0], 'Confirm password gained a hint that repeats the field above it.');
     }
 }
