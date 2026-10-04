@@ -33,31 +33,28 @@ class DashboardController extends Controller
         return view('dashboard.index', [
             'mayReadDirectory' => $mayReadDirectory,
             'cards' => $mayReadDirectory ? $this->cards($user) : [],
-            'coverage' => $mayReadDirectory ? $this->coverage($user) : null,
             'myRequests' => $mayReadDirectory ? $this->myRequests($user) : new Collection,
             'waitingOnADecision' => $mayReadDirectory ? $this->waitingOnADecision($user) : 0,
             'chart' => $mayReadDirectory ? $this->regions($user) : null,
+            'mayRaiseRequests' => $user->can(Rbac::REQUEST_PERMISSION),
             'access' => $user->can(Rbac::MANAGE_PERMISSION) ? $this->access() : null,
             'mayCreate' => $user->can('addresses.create'),
         ]);
     }
 
     /**
-     * The region distribution.
+     * The region distribution, scoped to what the caller can see.
      *
-     * Gated on seeing the whole directory rather than on a role list: a chart of
-     * where addresses are spread only says something to a reader who can reach
-     * more than their own handful. The Customer therefore keeps the Recent
-     * panel, which is more use for eight rows than a chart of them.
+     * No longer gated on seesEveryAddress(): a Customer's own rows are few, but
+     * the chart is over those rows and the map it drives is theirs too, so the
+     * same panel is more use to them than it was withheld for. A roleless account
+     * still never reaches this - index() only calls it for a reader of the
+     * directory.
      *
      * @return array<int, array{label: string, value: int}>|null
      */
     private function regions(User $user): ?array
     {
-        if (! $user->seesEveryAddress()) {
-            return null;
-        }
-
         return AddressStats::regions(Address::query()->visibleTo($user));
     }
 
@@ -68,7 +65,10 @@ class DashboardController extends Controller
      * Owners is dropped outside the Admin role: scoped to yourself it would
      * always read 1, and a card that can only say 1 is noise.
      *
-     * @return array<int, array{label: string, value: int, hint: string}>
+     * Only the lead card carries a `trend`: the other three have no series behind
+     * them, so the view reads it as optional.
+     *
+     * @return array<int, array{label: string, value: int, hint: string, trend?: array<int, array{label: string, value: int}>}>
      */
     private function cards(User $user): array
     {
@@ -79,6 +79,7 @@ class DashboardController extends Controller
             'label' => 'Addresses',
             'value' => $counts['addresses'],
             'hint' => $user->seesEveryAddress() ? 'on file across every owner' : 'on file under your name',
+            'trend' => AddressStats::trend($visible),
         ]];
 
         if ($user->seesEveryAddress()) {
@@ -102,18 +103,6 @@ class DashboardController extends Controller
         ];
 
         return $cards;
-    }
-
-    /**
-     * How much of what the user can see can be pinned. Counted in SQL rather
-     * than by loading every row, since this is the only thing the page needs
-     * from them.
-     *
-     * @return array{pinned: int, total: int, percent: int}
-     */
-    private function coverage(User $user): array
-    {
-        return AddressStats::coverage(Address::query()->visibleTo($user));
     }
 
     /**

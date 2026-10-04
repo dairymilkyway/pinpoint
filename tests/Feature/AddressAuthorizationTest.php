@@ -99,13 +99,15 @@ class AddressAuthorizationTest extends TestCase
         $this->assertDatabaseHas('addresses', ['id' => $address->id]);
     }
 
-    public function test_customer_cannot_export(): void
+    /**
+     * A Customer holds addresses.export now, so this is no longer a refusal. The
+     * scoping that comes with it - they export only their own book - is covered
+     * end to end in AddressExportTest; what is pinned here is the boundary flip
+     * itself, so the role's capability table in this file stays honest.
+     */
+    public function test_customer_may_export(): void
     {
-        Address::factory()->count(3)->create();
-
-        $this->actingAs($this->userWithRole('Customer'))
-            ->get(route('addresses.index', ['action' => 'excel']))
-            ->assertForbidden();
+        $this->assertTrue($this->userWithRole('Customer')->can('export', Address::class));
     }
 
     public function test_admin_can_create_and_edit_but_cannot_delete(): void

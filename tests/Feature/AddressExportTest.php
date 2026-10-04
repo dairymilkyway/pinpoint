@@ -7,7 +7,6 @@ use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PhpOffice\PhpSpreadsheet\IOFactory;
-use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class AddressExportTest extends TestCase
@@ -15,11 +14,11 @@ class AddressExportTest extends TestCase
     use RefreshDatabase;
 
     /** The directory table, which still carries the Owner column. */
-    private const COLUMNS = ['owner', 'label', 'line1', 'city', 'country', 'map', 'is_default', 'actions'];
+    private const COLUMNS = ['owner', 'label', 'line1', 'city', 'country', 'actions'];
 
     /**
      * One owner's page, where the Owner column would repeat a single name and a
-     * reader also loses Map and Default - see hidesMapAndDefault().
+     * reader also loses the default marker - see hidesDefaultMarker().
      */
     private const SCOPED_COLUMNS = ['label', 'line1', 'city', 'country', 'actions'];
 
@@ -80,11 +79,8 @@ class AddressExportTest extends TestCase
 
     public function test_a_scoped_role_only_exports_its_own_rows(): void
     {
-        // The seeded Customer cannot export at all, so grant it the way the
-        // permission matrix would. Otherwise this asserts the 403 rather than
-        // the scoping, and the scoping is the part with no rule of its own.
-        Role::findByName('Customer')->givePermissionTo('addresses.export');
-
+        // The Customer holds addresses.export, so no grant is needed here - the
+        // scoping is the part with no rule of its own, and it is what this pins.
         $customer = $this->userWithRole('Customer');
         Address::factory()->for($customer)->create(['city' => 'Zzmine', 'label' => 'Keep']);
         Address::factory()->count(3)->create(['city' => 'Zztheirs', 'label' => 'Drop']);
@@ -102,40 +98,27 @@ class AddressExportTest extends TestCase
     }
 
     /**
-     * The map state rides into the export, because the export strips markup and
-     * keeps the text inside the badge. Which is why the pin carries a word and
-     * not only an icon: an icon-only cell would export empty.
+     * The default marker has no column of its own now - it rides in the label
+     * cell. The export strips markup and keeps the text inside, so the marker
+     * survives as the word itself. The space separating it from the name has to
+     * survive too, or the cell reads "HomeDefault".
      *
-     * Read on the flat table rather than on an owner's page, which drops the
-     * column - and through a Customer, because a reader of the whole book lands
-     * on the users list, which has no table to export.
+     * Read through a Customer, because a reader of the whole book lands on the
+     * users list, which has no table to export.
      */
-    public function test_the_export_carries_the_map_state_as_plain_text(): void
+    public function test_the_export_keeps_the_default_marker_as_text_in_the_label_cell(): void
     {
-        Role::findByName('Customer')->givePermissionTo('addresses.export');
-
         $customer = $this->userWithRole('Customer');
-        Address::factory()->for($customer)->create(['label' => 'Pinned']);
-        Address::factory()->for($customer)->create([
-            'label' => 'Unpinned',
-            'latitude' => null,
-            'longitude' => null,
-        ]);
+        Address::factory()->for($customer)->create(['label' => 'Home', 'is_default' => true]);
+        Address::factory()->for($customer)->create(['label' => 'Work']);
 
         $sheet = $this->exportSheet($customer);
-        $map = array_search('Map', $sheet[0], true);
-
-        $this->assertNotFalse($map, 'the export should carry the Map column');
-
         $label = array_search('Label', $sheet[0], true);
-        $values = [];
 
-        foreach (array_slice($sheet, 1) as $row) {
-            $values[$row[$label]] = $row[$map];
-        }
+        $labels = array_column(array_slice($sheet, 1), $label);
+        sort($labels);
 
-        $this->assertSame('Pinned', $values['Pinned']);
-        $this->assertSame('No location', $values['Unpinned']);
+        $this->assertSame(['Home Default', 'Work'], $labels);
     }
 
     public function test_export_excludes_the_actions_column(): void
@@ -146,13 +129,6 @@ class AddressExportTest extends TestCase
         $sheet = $this->exportSheet($superadmin, $superadmin);
 
         $this->assertNotContains('Actions', $sheet[0]);
-    }
-
-    public function test_customer_cannot_export(): void
-    {
-        Address::factory()->create();
-
-        $this->export($this->userWithRole('Customer'))->assertForbidden();
     }
 
     public function test_the_export_button_is_rendered_only_where_the_table_can_export(): void
@@ -170,10 +146,11 @@ class AddressExportTest extends TestCase
             ->get(route('addresses.index'))->assertOk()->getContent();
         $this->assertStringNotContainsString('Export to Excel', $users);
 
+        // A Customer exports their own book now, so their table carries it too.
         $customer = $this->userWithRole('Customer');
         $ownTable = $this->actingAs($customer)
             ->get(route('addresses.index'))->assertOk()->getContent();
-        $this->assertStringNotContainsString('Export to Excel', $ownTable);
+        $this->assertStringContainsString('Export to Excel', $ownTable);
     }
 
     private function userWithRole(string $role): User

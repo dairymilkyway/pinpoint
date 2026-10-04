@@ -1,6 +1,11 @@
 // Self-hosted typography, no remote font CDN.
-import '@fontsource-variable/space-grotesk';
-import '@fontsource-variable/jetbrains-mono';
+import '@fontsource-variable/ibm-plex-sans';
+import '@fontsource/ibm-plex-mono';
+
+// The public pages' display serif. Per-weight imports: the latin- prefix pulls
+// one font file each, where the bare 400.css would ship five scripts.
+import '@fontsource/ibm-plex-serif/latin-400.css';
+import '@fontsource/ibm-plex-serif/latin-600.css';
 
 import './bootstrap';
 
@@ -30,38 +35,111 @@ if (mapElement) {
         mapElement.classList.remove('is-loading');
         skeleton.hide(mapElement);
         mapElement.classList.add('map--failed');
+        // role=alert only on failure: on success Leaflet fills this panel and a
+        // live region there would narrate every tile and marker.
+        mapElement.setAttribute('role', 'alert');
         mapElement.textContent = 'Could not load the map.';
     });
 }
 
-// The dashboard's region chart. chart.js is the largest dependency after
-// Leaflet and only two of the three roles draw it, so it is fetched on demand
-// alongside the map rather than shipped to every visitor.
-const chartElement = document.querySelector('[data-region-chart]');
+// The region chart and the metric band's sparkline. chart.js is the largest
+// dependency after Leaflet, so it is fetched on demand rather than shipped to
+// every visitor; either host pulls the module in.
+const chartElement = document.querySelector('[data-region-chart], [data-metric-spark]');
 
 if (chartElement) {
     import('./chart').catch(() => {
         // Without this the panel would shimmer forever if the chunk 404s.
         chartElement.classList.remove('is-loading');
         chartElement.classList.add('chart--failed');
+        chartElement.setAttribute('role', 'alert');
         chartElement.textContent = 'Could not load the chart.';
     });
 }
 
-// The directory table is filled over ajax on every search, sort and page change,
-// so it is the surface that blanks most often. DataTables fires preXhr before
-// each request and draw once the rows are in.
-const table = document.getElementById('addresses-table');
+// Flash messages arrive as toasts, already visible in the server-rendered
+// markup. Only the success toast dismisses itself, which is all this module
+// adds: the close button rides on Bootstrap's own dismiss handler. The module
+// is tiny, but it is still fetched on demand, matching the feature modules
+// above.
+const toasts = document.querySelectorAll('[data-toast]');
 
-if (table) {
-    const host = table.closest('.skeleton-host');
-    const columns = table.querySelectorAll('thead th').length;
-    const $table = window.jQuery(table);
+if (toasts.length) {
+    import('./toast').catch(() => {
+        // The message stays on screen, only the auto-dismiss is lost. That is
+        // the right way to fail: nothing is hidden.
+    });
+}
 
-    // Bound before DataTables initialises, so the very first request is covered.
-    $table.on('preXhr.dt', () => skeleton.show(host, columns));
-    $table.on('draw.dt', () => skeleton.hide(host));
-    $table.on('xhr.dt', () => skeleton.hide(host));
+// The directory tables are filled over ajax on every search, sort and page
+// change, so they are the surfaces that blank most often. DataTables fires
+// preXhr before each request and draw once the rows are in. Both the addresses
+// table and the users table are served here, so the module is not per-page.
+const tables = document.querySelectorAll('#addresses-table, #users-table');
+
+if (tables.length) {
+    const $ = window.jQuery;
+
+    tables.forEach((table) => {
+        const host = table.closest('.skeleton-host');
+        const columns = table.querySelectorAll('thead th').length;
+        const $table = $(table);
+
+        // A first run and a search that matched nothing are different screens.
+        // The copy travels on the host, so the wording is the screen's and this
+        // module only decides which one applies.
+        if (host?.dataset.tableEmpty || host?.dataset.tableZero) {
+            // A failed fetch is answered by the panel's own message, so the
+            // stock blocking alert is off.
+            $.fn.dataTableExt.errMode = 'none';
+
+            $.fn.dataTable.defaults.language = {
+                ...$.fn.dataTable.defaults.language,
+                // DataTables picks emptyTable when no rows exist at all and
+                // zeroRecords when a filter removed them.
+                emptyTable: host.dataset.tableEmpty || 'Nothing on file yet.',
+                zeroRecords: host.dataset.tableZero || 'Nothing matches that search.',
+                // The panel has its own shimmer while loading; the stock text
+                // would sit underneath it.
+                loadingRecords: '',
+                processing: '',
+                infoEmpty: '',
+            };
+        }
+
+        // Bound before DataTables initialises, so the very first request is covered.
+        $table.on('preXhr.dt', () => {
+            host?.classList.remove('table--failed');
+            skeleton.show(host, columns);
+        });
+        $table.on('draw.dt', () => {
+            skeleton.hide(host);
+            host?.classList.remove('table--failed');
+        });
+        $table.on('xhr.dt', (event, settings, json) => {
+            skeleton.hide(host);
+
+            // A failed request hands back no payload. The panel shows its own
+            // message naming the cause rather than a table that looks empty.
+            const failed = json === null;
+
+            host?.classList.toggle('table--failed', failed);
+
+            // The panel's words are only revealed by a display change, which
+            // assistive tech does not reliably announce. Copy them into a live
+            // region that is always rendered, so the announcement rides on the
+            // text changing instead.
+            const alert = host?.querySelector('[data-table-alert]');
+
+            if (alert) {
+                const panel = host.querySelector('.table-state--failed');
+
+                alert.textContent = failed && panel
+                    ? Array.from(panel.children).map((line) => line.textContent.trim()).join(' ')
+                    : '';
+            }
+        });
+    });
 }
 
 // A submitted form leaves the page waiting on the server with nothing on screen

@@ -6,13 +6,13 @@
 @section('heading', $adding ? 'Request a new address' : 'Request an edit')
 
 @section('content')
-    <div class="panel" style="max-width: 60rem;">
+    <div class="panel panel--reading">
         <div class="panel__head">
             <div>
                 <p class="eyebrow mb-1">Change request</p>
                 <p class="mb-0 text-dim small">
-                    An administrator reviews this before anything is written. Nothing here
-                    changes the directory until it is approved.
+                    An administrator reviews this before anything is saved. Nothing here
+                    changes the list until it is approved.
                 </p>
             </div>
         </div>

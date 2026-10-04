@@ -53,6 +53,7 @@ async function drawMap(element) {
         } catch (error) {
             element.classList.remove('is-loading');
             element.classList.add('map--failed');
+            element.setAttribute('role', 'alert');
             element.textContent = 'Could not load the map.';
             return;
         }
@@ -67,7 +68,7 @@ async function drawMap(element) {
         return;
     }
 
-    const markers = points.map((point) => {
+    const pins = points.map((point) => {
         const where = [point.city, point.state].filter(Boolean).join(', ');
 
         // The owner line only appears where there is more than one owner to tell
@@ -93,22 +94,91 @@ async function drawMap(element) {
             + owner
             + approximate;
 
-        // Amber is the theme's accent, and the dashed hollow ring reads as
-        // provisional next to the solid red default marker.
-        return point.approximate
+        // The ring colour is a fixed amber darker than the theme accent: map.js
+        // loads one light OSM tile layer in both themes, so a theme token would
+        // resolve to the accent in dark mode and sit at 2.17:1 on the tiles.
+        // #8a5a0e reads on tiles and the dashed hollow ring stays distinct from
+        // the solid red default marker.
+        const marker = point.approximate
             ? L.circleMarker([point.lat, point.lng], {
                 radius: 7,
-                color: '#e9a23b',
+                color: '#8a5a0e',
                 weight: 2,
                 dashArray: '3 3',
-                fillColor: '#e9a23b',
+                fillColor: '#8a5a0e',
                 fillOpacity: 0.15,
             }).bindPopup(popup)
             : L.marker([point.lat, point.lng]).bindPopup(popup);
+
+        return { marker, region: point.region || null };
     });
 
-    const group = L.featureGroup(markers).addTo(map);
-    map.fitBounds(group.getBounds(), { padding: [30, 30], maxZoom: 12 });
+    // Every pin starts on the map. The region label beside it is the join key a
+    // chart bar click arrives with, so focusing hides the rest without a rebuild.
+    pins.forEach(({ marker }) => marker.addTo(map));
+
+    const all = L.featureGroup(pins.map(({ marker }) => marker));
+    map.fitBounds(all.getBounds(), { padding: [30, 30], maxZoom: 12 });
+
+    // The chart is a separate lazily imported module, so a bar click reaches the
+    // map as a document event rather than a call. The caption is built here and
+    // not in a view, so the dashboard and the profile page both get it.
+    const focus = document.createElement('div');
+    focus.className = 'map__focus';
+    focus.hidden = true;
+
+    const focusLabel = document.createElement('span');
+
+    const focusClear = document.createElement('button');
+    focusClear.type = 'button';
+    focusClear.className = 'map__focus-all';
+    focusClear.textContent = 'Show all';
+    // The same event a bar click sends, so the map and the chart's highlight
+    // reset together.
+    focusClear.addEventListener('click', () => {
+        document.dispatchEvent(new CustomEvent('region:focus', { detail: { region: null } }));
+    });
+
+    focus.append(focusLabel, focusClear);
+    element.append(focus);
+
+    document.addEventListener('region:focus', (event) => {
+        const region = event.detail ? event.detail.region : null;
+
+        if (region === null) {
+            pins.forEach(({ marker }) => marker.addTo(map));
+            map.fitBounds(all.getBounds(), { padding: [30, 30], maxZoom: 12 });
+            focus.hidden = true;
+            return;
+        }
+
+        // A pin whose region is null or "" matches no bar, so it hides here
+        // along with every other pin outside the focused region.
+        const matched = pins.filter((pin) => pin.region === region);
+
+        pins.forEach((pin) => {
+            if (pin.region === region) {
+                pin.marker.addTo(map);
+            } else {
+                pin.marker.remove();
+            }
+        });
+
+        focusLabel.textContent = matched.length
+            ? `Showing ${region}`
+            : `${region} - no mapped addresses`;
+        focus.hidden = false;
+
+        // A region can hold bars but no pins - its addresses have no
+        // coordinates. Fitting to nothing would move the view for no reason, so
+        // the caption says so and the view stays where it was.
+        if (matched.length) {
+            map.fitBounds(
+                L.featureGroup(matched.map(({ marker }) => marker)).getBounds(),
+                { padding: [30, 30], maxZoom: 12 },
+            );
+        }
+    });
 
     // The panel is laid out alongside the table, so the container can still have
     // no height at the moment Leaflet first measures it. Re-measuring whenever

@@ -5,6 +5,7 @@ namespace App;
 use App\Geo\PhLocations;
 use App\Models\Address;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Carbon;
 
 /**
  * The figures the dashboard and a single user's profile page both report.
@@ -26,6 +27,65 @@ final class AddressStats
             'cities' => (clone $query)->whereNotNull('city_code')->distinct()->count('city_code'),
             'regions' => (clone $query)->whereNotNull('region_code')->distinct()->count('region_code'),
         ];
+    }
+
+    /**
+     * The cumulative addresses on file, one point per week, oldest first.
+     *
+     * Each value is the running total at the end of that week, so the last point
+     * equals counts($query)['addresses'] - the sparkline and the figure beside it
+     * cannot disagree. Reads created_at off the SAME scoped query the caller
+     * handed in.
+     *
+     * Deliberately not grouped in SQL: there is no date-bucketing expression both
+     * MariaDB and SQLite accept, and the app has to run on both. So the week
+     * boundaries are built first in PHP, and each row is looked up in that array
+     * by its own start-of-week date rather than doing week arithmetic on a
+     * timestamp - diffInWeeks and a raw / 604800 both carry Carbon-version and
+     * DST traps that a keyed lookup does not. Bucketing startOfWeek() on both the
+     * boundary and the row is what keeps the two from disagreeing about which day
+     * a week starts.
+     *
+     * @return array<int, array{label: string, value: int}>
+     */
+    public static function trend(Builder $query, int $weeks = 12): array
+    {
+        $weeks = max(1, $weeks);
+
+        $firstWeek = now()->startOfWeek()->subWeeks($weeks - 1);
+
+        // One bucket per week, oldest first, keyed by its start-of-week date so a
+        // row is matched by key rather than by timestamp comparison.
+        $buckets = [];
+        for ($i = 0; $i < $weeks; $i++) {
+            $buckets[$firstWeek->copy()->addWeeks($i)->toDateString()] = 0;
+        }
+
+        // Everything already on file before the window opens, as the running
+        // total's starting value.
+        $running = (clone $query)->where('created_at', '<', $firstWeek)->count();
+
+        // One column, one query over the window; the bucketing happens in PHP.
+        (clone $query)
+            ->where('created_at', '>=', $firstWeek)
+            ->pluck('created_at')
+            ->each(function ($createdAt) use (&$buckets): void {
+                $key = Carbon::parse($createdAt)->startOfWeek()->toDateString();
+                if (array_key_exists($key, $buckets)) {
+                    $buckets[$key]++;
+                }
+            });
+
+        $points = [];
+        foreach ($buckets as $week => $count) {
+            $running += $count;
+            $points[] = [
+                'label' => Carbon::parse($week)->format('j M'),
+                'value' => $running,
+            ];
+        }
+
+        return $points;
     }
 
     /**
@@ -86,13 +146,18 @@ final class AddressStats
      * would be worse than no pin. The stored coordinates stay honest, which is
      * also why the coverage figures above the map are unchanged by this.
      *
+     * The region field is the LABEL, produced through the same helper and the
+     * same `?? (string) $code` fallback regions() uses, so a pin and its bar join
+     * on an identical string even for a region the dataset does not know. It is
+     * deliberately not `state`, which is the province.
+     *
      * @param  bool  $withOwner  Named on each pin only where there is more than
      *                           one owner on the map to tell apart.
-     * @return array<int, array{label: string, line: string, city: string|null, state: string|null, postal: string|null, owner: string|null, lat: float|string, lng: float|string, approximate: bool}>
+     * @return array<int, array{label: string, line: string, city: string|null, state: string|null, region: string|null, postal: string|null, owner: string|null, lat: float|string, lng: float|string, approximate: bool}>
      */
     public static function mapPoints(Builder $query, bool $withOwner): array
     {
-        $columns = ['label', 'line1', 'line2', 'city', 'state', 'postal_code', 'latitude', 'longitude', 'city_code'];
+        $columns = ['label', 'line1', 'line2', 'city', 'state', 'region_code', 'postal_code', 'latitude', 'longitude', 'city_code'];
 
         if ($withOwner) {
             $columns[] = 'user_id';
@@ -120,6 +185,7 @@ final class AddressStats
                     'line' => trim($address->line1.($address->line2 ? ', '.$address->line2 : '')),
                     'city' => $address->city,
                     'state' => $address->state,
+                    'region' => PhLocations::regionLabel((string) $address->region_code) ?? (string) $address->region_code,
                     'postal' => $address->postal_code,
                     'owner' => $withOwner ? $address->user?->name : null,
                     'lat' => $position['lat'],

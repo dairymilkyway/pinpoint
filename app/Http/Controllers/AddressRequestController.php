@@ -8,7 +8,6 @@ use App\Models\AddressRequest;
 use App\Models\AuditLog;
 use App\Models\User;
 use App\Notifications\AddressRequestDecided;
-use App\Notifications\AddressRequestRaised;
 use App\Notifications\AddressRequestSettled;
 use App\Rbac;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -16,6 +15,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 /**
@@ -101,7 +101,7 @@ class AddressRequestController extends Controller
             $this->authorize('requestFor', $address);
         }
 
-        $change = AddressRequest::create([
+        AddressRequest::raise([
             'user_id' => $request->user()->id,
             'address_id' => $address?->id,
             'type' => $type,
@@ -110,16 +110,6 @@ class AddressRequestController extends Controller
             // written against when it was written.
             'before' => $address?->snapshot(),
             'note' => $data['note'] ?? null,
-        ]);
-
-        foreach ($this->approvers($request->user()) as $approver) {
-            $approver->notify(new AddressRequestRaised($change));
-        }
-
-        AuditLog::record(AuditLog::REQUEST_RAISED, $change, null, [
-            'type' => $type,
-            'address' => $change->subjectLabel(),
-            'requester' => $request->user()->name,
         ]);
 
         return redirect()->route('requests.index')
@@ -162,9 +152,9 @@ class AddressRequestController extends Controller
     /**
      * Applies an approved proposal. Returns the reason it could not, or null.
      *
-     * The three types write through the same model paths a reader's own write
-     * uses, so the audit observer sees an approved request exactly as it sees a
-     * direct edit.
+     * The types write through the same model paths a reader's own write uses, so
+     * the audit observer sees an approved request exactly as it sees a direct
+     * edit.
      */
     private function apply(AddressRequest $change): ?string
     {
@@ -176,6 +166,14 @@ class AddressRequestController extends Controller
             AddressRequest::TYPE_CREATE => $change->user->addresses()->create($change->payload ?? []),
             AddressRequest::TYPE_UPDATE => $change->address->update($change->payload ?? []),
             AddressRequest::TYPE_DELETE => $change->address->delete(),
+            // All or nothing: a half-applied import would leave the Customer's
+            // book in a state neither party chose, which is the thing the
+            // per-file decision exists to avoid. If any row fails, none land.
+            AddressRequest::TYPE_IMPORT => DB::transaction(function () use ($change): void {
+                foreach ($change->payload ?? [] as $row) {
+                    $change->user->addresses()->create($row);
+                }
+            }),
         };
 
         return null;

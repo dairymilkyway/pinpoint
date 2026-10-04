@@ -102,7 +102,7 @@ class AddressController extends Controller
             [
                 'label' => 'Pinned',
                 'value' => $coverage['pinned'],
-                'hint' => $coverage['percent'].'% of them have coordinates',
+                'hint' => $coverage['percent'].'% of them are on the map',
             ],
         ];
     }

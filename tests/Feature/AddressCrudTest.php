@@ -192,11 +192,31 @@ class AddressCrudTest extends TestCase
         $this->assertDatabaseMissing('addresses', ['id' => $address->id]);
     }
 
-    public function test_deleting_a_user_cascades_to_their_addresses(): void
+    /**
+     * Deactivating an owner is a soft delete, so the cascade on
+     * addresses.user_id never fires. Their rows stay in the book with their name
+     * on them; only sign-in is blocked.
+     */
+    public function test_deactivating_a_user_keeps_their_addresses(): void
     {
         $address = Address::factory()->create();
 
         $address->user->delete();
+
+        $this->assertDatabaseHas('addresses', ['id' => $address->id]);
+        $this->assertNotNull($address->fresh()->user);
+    }
+
+    /**
+     * The cascade is still real, it just moved behind forceDelete. Without this
+     * the pair would prove nothing: the old assertion would be gone and the
+     * rule it encoded would be untested in both directions.
+     */
+    public function test_force_deleting_a_user_still_cascades_to_their_addresses(): void
+    {
+        $address = Address::factory()->create();
+
+        $address->user->forceDelete();
 
         $this->assertDatabaseMissing('addresses', ['id' => $address->id]);
     }

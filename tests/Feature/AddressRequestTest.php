@@ -128,6 +128,42 @@ class AddressRequestTest extends TestCase
         $this->assertStringContainsString('id="reject-'.$change->id.'"', $html);
     }
 
+    /**
+     * The reason is the one part of a request a reader wants before opening
+     * anything, so the row carries it too rather than leaving it behind the
+     * button. A request raised without one leaves no empty line behind.
+     */
+    public function test_the_row_carries_the_reason_and_an_empty_one_leaves_no_line(): void
+    {
+        $customer = $this->customer();
+        $reader = $this->reader();
+
+        $quiet = Address::factory()->for($customer)->create(['label' => 'Quiet']);
+        $this->actingAs($customer)->post(route('requests.store'), $this->editPayload($quiet, [
+            'label' => 'Quiet edited',
+        ]));
+
+        $loud = Address::factory()->for($customer)->create(['label' => 'Loud']);
+        $this->actingAs($customer)->post(route('requests.store'), $this->editPayload($loud, [
+            'label' => 'Loud edited',
+            'note' => 'Zztenant has moved out',
+        ]));
+
+        $html = $this->actingAs($reader)->get(route('requests.index'))->assertOk()->getContent();
+
+        // The modal renders the reason quoted inside a <p>; only the row renders
+        // it in the summary's own treatment. Matching that shape is what proves
+        // the reason reached the row and not just the modal a click away.
+        $this->assertStringContainsString(
+            '<div class="text-dim small mt-1">Zztenant has moved out</div>',
+            $html,
+        );
+
+        // The request raised with no reason renders no empty line where one would
+        // have been.
+        $this->assertStringNotContainsString('<div class="text-dim small mt-1"></div>', $html);
+    }
+
     public function test_the_review_modal_is_read_only_for_the_requester(): void
     {
         $customer = $this->customer();

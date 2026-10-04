@@ -144,8 +144,14 @@ class Address extends Model
             : $query->where('addresses.user_id', $user->id);
     }
 
+    /**
+     * The owner, deactivated or not. A deactivation keeps the addresses in the
+     * book and keeps the owner's name on them, so this relation must resolve a
+     * trashed user; without withTrashed the SoftDeletes scope blanks every
+     * owner column and, worse, silently fails the directory search by name.
+     */
     public function user(): BelongsTo
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class)->withTrashed();
     }
 }

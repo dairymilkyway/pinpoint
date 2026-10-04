@@ -21,12 +21,12 @@
 
                 <div class="modal-body">
                     <p class="mb-0">
-                        Delete <strong id="deleteAddressLabel" class="text-white"></strong>?
+                        Delete <strong id="deleteAddressLabel" class="text-body"></strong>?
                         This cannot be undone.
                     </p>
                 </div>
 
-                <div class="modal-footer">
+                <div class="modal-footer action-bar">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
                     <button type="submit" class="btn btn-danger">
                         <i class="bi bi-trash"></i> <span class="ms-1">Delete</span>
@@ -59,12 +59,12 @@
                     <div class="modal-body">
                         <p class="mb-0">
                             Ask an administrator to delete
-                            <strong id="requestDeleteLabel" class="text-white"></strong>?
-                            The address stays in the book until the request is approved.
+                            <strong id="requestDeleteLabel" class="text-body"></strong>?
+                            The address stays in your list until the request is approved.
                         </p>
                     </div>
 
-                    <div class="modal-footer">
+                    <div class="modal-footer action-bar">
                         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
                         <button type="submit" class="btn btn-primary">
                             <i class="bi bi-send"></i> <span class="ms-1">Send request</span>

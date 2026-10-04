@@ -47,7 +47,10 @@ class UserSeeder extends Seeder
 
     private function upsert(string $email, string $name, string $password, string $role): void
     {
-        $user = User::updateOrCreate(
+        // withTrashed is required: a deactivated account keeps the email on its
+        // row, so without it updateOrCreate misses the trashed user and the
+        // insert then collides on the unique email index.
+        $user = User::withTrashed()->updateOrCreate(
             ['email' => $email],
             ['name' => $name, 'password' => $password],
         );

@@ -30,11 +30,18 @@ class UserDataTable extends DataTable
     {
         return (new EloquentDataTable($query))
             ->addColumn('addresses', fn (User $user) => $user->addresses_count)
+            // A deactivated owner is listed like any other, so the row has to say
+            // so. 'name' is user input and this cell is now raw HTML, so it is
+            // escaped here - an unescaped name would be an XSS hole.
+            ->editColumn('name', fn (User $user) => e($user->name)
+                .($user->trashed() ? ' <span class="badge badge-soft ms-2">Deactivated</span>' : ''))
             ->addColumn('actions', fn (User $user) => view(
                 'addresses.partials.user-actions',
                 ['user' => $user],
             )->render())
-            ->rawColumns(['actions'])
+            ->rawColumns(['name', 'actions'])
+            // Dim the closed row through the existing .is-deactivated rule.
+            ->setRowClass(fn (User $user) => $user->trashed() ? 'is-deactivated' : '')
             // The count is a withCount alias, so the column has to be ordered
             // by that alias rather than by a real table column.
             ->orderColumn('addresses', fn (QueryBuilder $query, string $order) => $query->orderBy(
@@ -47,6 +54,8 @@ class UserDataTable extends DataTable
     public function query(User $model): QueryBuilder
     {
         return $model->newQuery()
+            // A deactivated owner stays listed: their addresses remain in the book.
+            ->withTrashed()
             ->owningAccounts()
             ->withCount('addresses');
     }

@@ -63,7 +63,7 @@ class UserProfileTest extends TestCase
         $this->assertCount(3, $this->points($html, 'data-address-map'));
 
         // The cards and the coverage line read the same three rows.
-        $this->assertStringContainsString('3 of 3 addresses have coordinates', $html);
+        $this->assertStringContainsString('3 of 3 addresses are on the map', $html);
         $this->assertStringContainsString('held by this account', $html);
     }
 
@@ -107,7 +107,7 @@ class UserProfileTest extends TestCase
         $this->assertCount(1, $chart = $this->points($html, 'data-region-chart'));
         $this->assertSame(2, $chart[0]['value']);
         $this->assertCount(2, $this->points($html, 'data-address-map'));
-        $this->assertStringContainsString('2 of 2 addresses have coordinates', $html);
+        $this->assertStringContainsString('2 of 2 addresses are on the map', $html);
     }
 
     public function test_a_customer_still_cannot_open_another_account(): void
@@ -128,8 +128,8 @@ class UserProfileTest extends TestCase
 
         $this->assertSame([], $this->points($html, 'data-region-chart'));
         $this->assertSame([], $this->points($html, 'data-address-map'));
-        $this->assertStringContainsString('0 of 0 addresses have coordinates', $html);
-        $this->assertStringContainsString('0% of them have coordinates', $html);
+        $this->assertStringContainsString('0 of 0 addresses are on the map', $html);
+        $this->assertStringContainsString('0% of them are on the map', $html);
     }
 
     public function test_the_dashboard_map_still_fetches_rather_than_carrying_its_pins(): void

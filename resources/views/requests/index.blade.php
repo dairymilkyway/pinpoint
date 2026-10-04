@@ -21,29 +21,32 @@
                         &middot; {{ $pending->count() }} waiting
                     @endif
                 </p>
-                <p class="mb-0 text-dim small">
-                    @if ($canDecide)
-                        Changes a Customer has asked for. Nothing reaches the directory until
-                        one of them is approved.
-                    @else
-                        Changes you have asked for. An administrator reviews each one before it
-                        reaches the directory.
-                    @endif
-                </p>
+                <h2 class="panel__question mb-0">
+                    {{ $canDecide ? 'Clear the queue.' : 'Watch what you have asked for.' }}
+                </h2>
             </div>
 
             @can('addresses.request')
-                <a href="{{ route('requests.create', ['type' => 'create']) }}" class="btn btn-primary btn-sm text-nowrap">
-                    <i class="bi bi-plus-lg"></i> <span class="ms-1">Request a new address</span>
-                </a>
+                <div class="action-bar">
+                    <a href="{{ route('requests.create', ['type' => 'create']) }}" class="btn btn-primary text-nowrap">
+                        <i class="bi bi-plus-lg"></i> <span class="ms-1">Request a new address</span>
+                    </a>
+                </div>
             @endcan
         </div>
 
         <div class="panel__body panel__body--flush">
             @if ($pending->isEmpty())
-                <p class="text-dim small p-4 mb-0">
-                    {{ $canDecide ? 'Nothing is waiting on you.' : 'You have no requests waiting on a decision.' }}
-                </p>
+                <div class="table-state">
+                    {{-- A check, because a clear queue is the good outcome and reads as such. --}}
+                    <i class="bi bi-check2-circle d-block mb-2" aria-hidden="true"></i>
+                    <p class="mb-1">{{ $canDecide ? 'Nothing is waiting on you.' : 'You have no requests waiting on a decision.' }}</p>
+                    <p class="mb-0 small">
+                        {{ $canDecide
+                            ? 'A request a Customer raises appears here for you to approve or reject.'
+                            : 'Ask for a change from the address list and it appears here until it is decided.' }}
+                    </p>
+                </div>
             @else
                 <div class="table-responsive">
                     <table class="table table-hover align-middle w-100">
@@ -73,10 +76,7 @@
     @if ($decided->isNotEmpty())
         <div class="panel mt-4">
             <div class="panel__head">
-                <div>
-                    <p class="eyebrow mb-1">Decided</p>
-                    <p class="mb-0 text-dim small">The last twenty settled requests, most recent first.</p>
-                </div>
+                <p class="eyebrow mb-0">Decided</p>
             </div>
 
             <div class="panel__body panel__body--flush">

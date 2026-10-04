@@ -132,7 +132,7 @@ class AddressImportTest extends TestCase
         // code with a city the code does not name.
         $this->assertSame($city['name'], Address::sole()->city);
         $this->assertSame($city['region'], Address::sole()->region_code);
-        $this->assertSame('National Capital Region', Address::sole()->state);
+        $this->assertSame('Metro Manila', Address::sole()->state);
 
         // Coordinates as well, which is what makes dropping them from the
         // template safe rather than merely tidier: the dataset supplies what a
@@ -269,10 +269,10 @@ class AddressImportTest extends TestCase
     }
 
     /**
-     * Taguig is in the city dataset but carries no coordinates: GeoNames keys
-     * Metro Manila by postal district and has no Taguig row to join onto, so it
-     * was dropped rather than guessed. The address is still sound, which is why
-     * this reports rather than rejects.
+     * General Santos is one of the 152 cities the join could not place, so it
+     * has no row at all and the address it produces carries neither a position
+     * nor a postal code. That is a real address all the same - the reader typed
+     * a city the dataset knows - which is why this reports rather than rejects.
      */
     public function test_a_row_in_a_city_with_no_coordinates_says_so(): void
     {
@@ -282,13 +282,18 @@ class AddressImportTest extends TestCase
         $this->actingAs($reader)
             ->post(route('addresses.import.store'), [
                 'user_id' => $owner->id,
-                'file' => $this->workbook([$this->row(['city' => 'Taguig'])]),
+                'file' => $this->workbook([$this->row(['city' => 'General Santos', 'postal_code' => '9500'])]),
             ])
             ->assertRedirect()
             ->assertSessionHasNoErrors()
-            ->assertSessionHas('import_unpinned', ['City of Taguig']);
+            ->assertSessionHas('import_unpinned', ['City of General Santos']);
 
-        $this->assertSame('City of Taguig', Address::sole()->city);
+        $this->assertSame('City of General Santos', Address::sole()->city);
+
+        // The sheet's own postal code survives. The dataset is silent about a
+        // city it cannot place, which is the right way round: it corrects the
+        // sheet when it knows better, and does not blank what it does not know.
+        $this->assertSame('9500', Address::sole()->postal_code);
         $this->assertNull(Address::sole()->latitude);
     }
 
@@ -317,13 +322,13 @@ class AddressImportTest extends TestCase
             ->followingRedirects()
             ->post(route('addresses.import.store'), [
                 'user_id' => $owner->id,
-                'file' => $this->workbook([$this->row(['city' => 'Taguig'])]),
+                'file' => $this->workbook([$this->row(['city' => 'General Santos'])]),
             ])
             ->assertOk()
             ->getContent();
 
         $this->assertStringContainsString('Saved, but not on the map', $html);
-        $this->assertStringContainsString('City of Taguig', $html);
+        $this->assertStringContainsString('City of General Santos', $html);
     }
 
     public function test_a_numeric_postal_code_is_not_rejected_for_being_a_number(): void
@@ -381,16 +386,19 @@ class AddressImportTest extends TestCase
         $this->assertSame(0, Address::count());
     }
 
-    public function test_the_import_requires_the_create_permission(): void
+    public function test_the_import_refuses_a_role_holding_neither_create_nor_request(): void
     {
-        $customer = $this->userWithRole('Customer');
+        // A Customer can reach the page now, but only to propose. A role with
+        // neither permission is still refused at the door - the gate is not
+        // simply open to everyone.
+        $nobody = User::factory()->create();
         $owner = User::factory()->create();
 
-        $this->actingAs($customer)
+        $this->actingAs($nobody)
             ->get(route('addresses.import.create'))
             ->assertForbidden();
 
-        $this->actingAs($customer)
+        $this->actingAs($nobody)
             ->post(route('addresses.import.store'), [
                 'user_id' => $owner->id,
                 'file' => $this->workbook([$this->row()]),
@@ -484,12 +492,13 @@ class AddressImportTest extends TestCase
         Role::findByName('Customer')->givePermissionTo('addresses.create');
         $customer = $this->userWithRole('Customer');
 
-        // Create but not export, so the row is drawn without it.
+        // Holding create, the account sees the create-side actions and the
+        // export alike.
         $own = $this->actingAs($customer)
             ->get(route('addresses.index'))->assertOk()->getContent();
 
         $this->assertStringContainsString('Import Excel', $own);
-        $this->assertStringNotContainsString('Export to Excel', $own);
+        $this->assertStringContainsString('Export to Excel', $own);
     }
 
     public function test_the_template_downloads_with_the_imports_headings(): void

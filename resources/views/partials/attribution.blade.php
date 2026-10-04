@@ -8,7 +8,9 @@
         <a href="https://download.geonames.org/export/zip/" target="_blank" rel="noopener noreferrer">GeoNames</a>
         (CC BY 4.0). Postal codes are approximate and not authoritative.
     </p>
-    <p class="mb-0">
-        Map tiles &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors.
-    </p>
+    @if ($tiles ?? true)
+        <p class="mb-0">
+            Map tiles &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors.
+        </p>
+    @endif
 </footer>

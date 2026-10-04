@@ -8,34 +8,27 @@
     @php($role = $user->getRoleNames()->first())
     @php($seesEveryAddress = $user->seesEveryAddress())
 
-    <div class="panel">
-        <div class="panel__head">
-            <div>
-                <p class="eyebrow mb-1">Signed in as {{ $role ?? 'no role' }}</p>
-                <p class="mb-0 text-dim small">
-                    @if ($mayReadDirectory)
-                        A summary of the directory. The panels below reflect what your role can reach.
-                    @else
-                        Your account does not hold any directory permissions yet.
-                    @endif
-                </p>
-            </div>
+    {{-- 1. Identity and actions. The shell header already names who you are, so
+         this row is the one place the dashboard offers a way into the work. --}}
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+        <p class="eyebrow mb-0">Signed in as {{ $role ?? 'no role' }}</p>
 
-            @if ($mayCreate)
-                <div class="d-flex gap-2">
-                    <a href="{{ route('addresses.create') }}" class="btn btn-primary btn-sm text-nowrap">
-                        <i class="bi bi-plus-lg"></i> <span class="ms-1">New address</span>
-                    </a>
-                    <a href="{{ route('addresses.index') }}" class="btn btn-outline-secondary btn-sm text-nowrap">
-                        <i class="bi bi-table"></i> <span class="ms-1">Open directory</span>
-                    </a>
-                </div>
-            @elseif ($mayReadDirectory)
-                <a href="{{ route('addresses.index') }}" class="btn btn-outline-secondary btn-sm text-nowrap">
-                    <i class="bi bi-table"></i> <span class="ms-1">Open directory</span>
+        @if ($mayCreate)
+            <div class="action-bar">
+                <a href="{{ route('addresses.index') }}" class="btn btn-outline-secondary text-nowrap">
+                    <i class="bi bi-table"></i> <span class="ms-1">Open addresses</span>
                 </a>
-            @endif
-        </div>
+                <a href="{{ route('addresses.create') }}" class="btn btn-primary text-nowrap">
+                    <i class="bi bi-plus-lg"></i> <span class="ms-1">New address</span>
+                </a>
+            </div>
+        @elseif ($mayReadDirectory)
+            <div class="action-bar">
+                <a href="{{ route('addresses.index') }}" class="btn btn-outline-secondary text-nowrap">
+                    <i class="bi bi-table"></i> <span class="ms-1">Open addresses</span>
+                </a>
+            </div>
+        @endif
     </div>
 
     @if (! $mayReadDirectory)
@@ -45,37 +38,44 @@
             <div class="panel__body">
                 <p class="mb-2">You are signed in, but nothing has been shared with you yet.</p>
                 <p class="mb-0 text-dim small">
-                    An administrator needs to assign your account a role before the directory
+                    An administrator needs to assign your account a role before the list
                     becomes visible. Once that happens this page fills in automatically.
                 </p>
             </div>
         </div>
     @else
-        <div class="stat-grid">
+        {{-- 2. The metric band. Unequal by weight on purpose: addresses lead, the
+             rest support, so the band does not assert a false equality of
+             importance. A value never appears without its label. --}}
+        <div class="metric-band mb-4" role="group" aria-label="Address figures">
             @foreach ($cards as $card)
-                <div class="stat">
-                    <p class="stat__label">{{ $card['label'] }}</p>
-                    <p class="stat__value mb-1">{{ number_format($card['value']) }}</p>
-                    <p class="stat__hint mb-0">{{ $card['hint'] }}</p>
+                <div class="metric {{ $loop->first ? 'metric--lead' : '' }}">
+                    <p class="metric__label">{{ $card['label'] }}</p>
+                    <div class="metric__row">
+                        <span class="metric__value">{{ number_format($card['value']) }}</span>
+                        <span class="metric__unit">{{ $card['hint'] }}</span>
+                    </div>
+                    @if (isset($card['trend']))
+                        <div class="metric__spark" data-metric-spark data-points="{{ json_encode($card['trend']) }}">
+                            <canvas aria-hidden="true"></canvas>
+                        </div>
+                        <p class="metric__spark-caption">Last 12 weeks</p>
+                    @endif
                 </div>
             @endforeach
         </div>
 
         @if ($access)
-            {{-- Superadmin only: the same permission that opens /rbac gates this.
-                 Directly under the figures rather than at the foot of the page,
-                 because the one account that sees it is the one whose job starts
-                 with the roles, and it was previously below a full-height map. --}}
+            {{-- Superadmin only: the same permission that opens /rbac gates this. --}}
             <div class="panel mb-4">
                 <div class="panel__head">
-                    <div>
-                        <p class="eyebrow mb-1">Access</p>
-                        <p class="mb-0 text-dim small">Everything the permission system currently holds.</p>
-                    </div>
+                    <p class="eyebrow mb-0">Access</p>
 
-                    <a href="{{ route('rbac.index') }}" class="btn btn-outline-secondary btn-sm text-nowrap">
-                        <i class="bi bi-shield-lock"></i> <span class="ms-1">Manage roles</span>
-                    </a>
+                    <div class="action-bar">
+                        <a href="{{ route('rbac.index') }}" class="btn btn-outline-secondary text-nowrap">
+                            <i class="bi bi-shield-lock"></i> <span class="ms-1">Manage roles</span>
+                        </a>
+                    </div>
                 </div>
 
                 <div class="panel__body">
@@ -95,23 +95,82 @@
             </div>
         @endif
 
+        {{-- 3. What is waiting on a person: the only items on the page that need a
+             decision. A Customer sees the requests they have raised; a reader sees
+             the queue they clear. --}}
+        @if ($mayRaiseRequests)
+            <div class="panel mb-4">
+                <div class="panel__head">
+                    <div>
+                        <p class="eyebrow mb-1">Your requests</p>
+                        @if ($waitingOnADecision > 0)
+                            <p class="mb-0 text-dim small">{{ $waitingOnADecision }} waiting on a decision.</p>
+                        @endif
+                    </div>
+
+                    <div class="action-bar">
+                        <a href="{{ route('requests.index') }}" class="btn btn-outline-secondary text-nowrap">
+                            Open requests
+                        </a>
+                    </div>
+                </div>
+
+                <div class="panel__body panel__body--flush">
+                    @forelse ($myRequests as $change)
+                        <div class="recent-row">
+                            <div class="min-w-0">
+                                <p class="mb-0 text-truncate">
+                                    <span class="badge badge-soft">{{ Str::headline($change->type) }}</span>
+                                    <span class="fw-medium ms-1">{{ $change->subjectLabel() }}</span>
+                                </p>
+                                <p class="mb-0 text-dim small text-truncate">
+                                    @if ($change->isPending())
+                                        Waiting since {{ $change->created_at->diffForHumans() }}
+                                    @else
+                                        {{ Str::headline($change->status) }}
+                                        {{ $change->decided_at?->diffForHumans() }}
+                                        @if ($change->decision_note)
+                                            &middot; &ldquo;{{ Str::limit($change->decision_note, 60) }}&rdquo;
+                                        @endif
+                                    @endif
+                                </p>
+                            </div>
+
+                            <span class="text-faint small text-nowrap">
+                                {{ $change->decider?->name ?? $change->user?->name }}
+                            </span>
+                        </div>
+                    @empty
+                        <p class="text-dim small p-4 mb-0">
+                            You have not asked for a change yet.
+                        </p>
+                    @endforelse
+                </div>
+            </div>
+        @else
+            <div class="panel mb-4">
+                <div class="panel__head">
+                    <p class="eyebrow mb-0">Requests</p>
+
+                    <div class="action-bar">
+                        <a href="{{ route('requests.index') }}" class="btn btn-outline-secondary text-nowrap">
+                            Open the queue
+                        </a>
+                    </div>
+                </div>
+            </div>
+        @endif
+
+        {{-- 4. Distribution and the map. The reader's chart answers where the book
+             is concentrated; the map is a supporting view for every role. --}}
         <div class="row g-4">
-            <div class="col-lg-7">
-                @if ($chart !== null)
-                    {{-- Whoever reads the whole directory. The Customer falls
-                         through to the Recent list below, which says more about
-                         eight addresses than a chart of where those eight sit.
-                         Tested against null rather than truthiness: a reader
-                         with nothing on file gets an empty array, and that
-                         should still be the chart panel, not Recent. --}}
+            @if ($chart !== null)
+                <div class="col-lg-7">
                     <div class="panel h-100">
                         <div class="panel__head">
                             <div>
                                 <p class="eyebrow mb-1">By region</p>
-                                <p class="mb-0 text-dim small">
-                                    {{ $seesEveryAddress ? 'Every address on file' : 'Your own addresses' }},
-                                    ranked by how many sit in each region.
-                                </p>
+                                <h2 class="panel__question mb-0">Where are the addresses concentrated?</h2>
                             </div>
                         </div>
 
@@ -141,87 +200,19 @@
                             </ul>
                         </div>
                     </div>
-                @else
-                    {{-- The Customer's column. Was the six most recent addresses,
-                         which said nothing the address table does not already say;
-                         asking an administrator for a change is the one thing this
-                         role does that no other screen on the dashboard mentions. --}}
-                    <div class="panel h-100">
-                        <div class="panel__head">
-                            <div>
-                                <p class="eyebrow mb-1">Your requests</p>
-                                <p class="mb-0 text-dim small">
-                                    @if ($waitingOnADecision > 0)
-                                        {{ $waitingOnADecision }} waiting on a decision.
-                                    @else
-                                        What you have asked an administrator to change.
-                                    @endif
-                                </p>
-                            </div>
+                </div>
+            @endif
 
-                            <a href="{{ route('requests.index') }}" class="btn btn-outline-secondary btn-sm text-nowrap">
-                                Open requests
-                            </a>
-                        </div>
-
-                        <div class="panel__body panel__body--flush">
-                            @forelse ($myRequests as $change)
-                                <div class="recent-row">
-                                    <div class="min-w-0">
-                                        <p class="mb-0 text-truncate">
-                                            <span class="badge badge-soft">{{ Str::headline($change->type) }}</span>
-                                            <span class="fw-medium ms-1">{{ $change->subjectLabel() }}</span>
-                                        </p>
-                                        <p class="mb-0 text-dim small text-truncate">
-                                            @if ($change->isPending())
-                                                Waiting since {{ $change->created_at->diffForHumans() }}
-                                            @else
-                                                {{ Str::headline($change->status) }}
-                                                {{ $change->decided_at?->diffForHumans() }}
-                                                @if ($change->decision_note)
-                                                    &middot; &ldquo;{{ Str::limit($change->decision_note, 60) }}&rdquo;
-                                                @endif
-                                            @endif
-                                        </p>
-                                    </div>
-
-                                    <span class="text-faint small text-nowrap">
-                                        {{ $change->decider?->name ?? $change->user?->name }}
-                                    </span>
-                                </div>
-                            @empty
-                                <p class="text-dim small p-4 mb-0">
-                                    You have not asked for a change yet.
-                                </p>
-                            @endforelse
-                        </div>
-                    </div>
-                @endif
-            </div>
-
-            <div class="col-lg-5">
-                <div class="panel h-100">
+            <div class="{{ $chart !== null ? 'col-lg-5' : 'col-12' }}">
+                <div class="panel panel--fill h-100">
                     <div class="panel__head">
                         <div>
                             {{-- A directory-wide reader pins the whole book, so
                                  the panel is named for what is on it rather than
                                  for the person reading it. --}}
                             <p class="eyebrow mb-1">{{ $seesEveryAddress ? 'User locations' : 'Your locations' }}</p>
-                            {{-- The map shows which addresses are pinned; this line
-                                 is the one fact it cannot: how many are not. Some
-                                 of the gap is drawn anyway, from the province or
-                                 region centre, so the second sentence is what stops
-                                 the stand-ins reading as positions. It says "where
-                                 one is known" rather than claiming all of them:
-                                 a free-text address, or one whose city is placed
-                                 but whose own coordinates are missing, has nothing
-                                 to borrow from and stays off the map. --}}
                             <p class="mb-0 text-dim small">
-                                {{ $seesEveryAddress ? 'Every address on file' : 'Your own addresses' }}, pinned.
-                                {{ number_format($coverage['pinned']) }} of {{ number_format($coverage['total']) }} addresses have coordinates.
-                                @if ($coverage['pinned'] < $coverage['total'])
-                                    The rest are drawn at the centre of their province or region where one is known, and marked as approximate.
-                                @endif
+                                {{ $seesEveryAddress ? 'Every address on file' : 'Your own addresses' }}, mapped.
                                 Tiles by OpenStreetMap.
                             </p>
                         </div>
@@ -241,7 +232,6 @@
                         </div>
                     </div>
                 </div>
-
             </div>
         </div>
     @endif

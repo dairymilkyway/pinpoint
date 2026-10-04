@@ -7,19 +7,13 @@
         <div class="auth-card">
             <div class="auth-card__head">
                 <a href="{{ url('/') }}" class="app-brand">
-                    <span class="app-brand__mark"><i class="bi bi-geo-alt-fill"></i></span>
-                    <span>{{ config('app.name', 'Address Book') }}</span>
+                    <span class="app-brand__mark"><i class="bi bi-crosshair"></i></span>
+                    <span>{{ config('app.name', 'Pinpoint') }}</span>
                 </a>
 
                 <h1 class="auth-card__title">Verify your email</h1>
                 <p class="auth-card__sub">We sent a verification link to your inbox.</p>
             </div>
-
-            @if (session('resent'))
-                <div class="alert alert-success" role="alert">
-                    A fresh verification link has been sent to your email address.
-                </div>
-            @endif
 
             <p class="text-dim mb-4">
                 Before proceeding, please check your email for a verification link.

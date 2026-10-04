@@ -6,43 +6,151 @@
 
 /* ==========================================================================
    Tokens
-   Layered ink surfaces plus one warm accent. Every later rule reads from
-   these, so the whole theme moves by editing this block.
+   One cool ink ramp, one accent, one functional state set (design.md section
+   3). Every later rule reads from these, so the whole theme moves by editing
+   this block. Values are measured; do not substitute.
+
+   Cool rather than warm on purpose: a warm accent on a cool neutral separates
+   the accent without spending a second saturated colour.
    ========================================================================== */
 
 :root {
-    --ink-950: #08090b;
-    --ink-900: #0c0e11;
-    --ink-850: #111419;
-    --ink-800: #161a20;
-    --ink-750: #1c2129;
+    // Ink ramp, seven steps. The steps are tight so chrome recedes behind the
+    // data; the extra two steps exist so an interactive surface can move
+    // through hover and press without changing colour.
+    --ink-1000: #0a0c0f; // page background
+    --ink-950: #0d1014;  // app background, table header
+    --ink-900: #11151a;  // panel surface
+    --ink-850: #151a20;  // raised panel, hovered row
+    --ink-800: #171c22;  // control background
+    --ink-750: #1f252d;  // hover
+    --ink-700: #262d36;  // pressed / active
 
-    --line: rgba(255, 255, 255, 0.07);
-    --line-strong: rgba(255, 255, 255, 0.13);
+    --line: rgba(255, 255, 255, 0.06);
+    --line-strong: rgba(255, 255, 255, 0.11);
+    // The one depth trick worth spending: a 1px top inset highlight that reads
+    // as a machined edge catching light, not a gradient.
+    --lip: rgba(255, 255, 255, 0.055);
 
-    --text: #e9ebee;
-    --text-dim: #98a0ab;
-    --text-faint: #656d78;
+    // Three text tiers, each measured against every surface it can sit on.
+    // Worst case (pressed ink-700): text 10.87:1, dim 5.98:1, faint 4.59:1.
+    --text: #dfe4ea;
+    --text-dim: #a2abb6;
+    --text-faint: #8c95a2;
 
+    // Amber marks "measured and placed". --amber-ink is text ON a solid amber
+    // surface (8.56:1); --amber-text is amber AS text, which needs a darker
+    // value in the light theme to clear 4.5:1. One value cannot be both.
     --amber: #e9a23b;
     --amber-hot: #f7bc63;
+    --amber-ink: #1a1204;
+    --amber-text: #e9a23b;
     --amber-wash: rgba(233, 162, 59, 0.12);
 
-    --ease: cubic-bezier(0.2, 0, 0.2, 1);
-    --fast: 130ms;
+    // Functional state hues, used only to express state and always beside a
+    // word or icon. Warning steps toward red so it never reads as the brand.
+    // Danger is #e78484 rather than #e57373: the darker red measured 4.38:1 as
+    // text on its own wash over the hover surface, under the 4.5:1 floor.
+    --state-success: #7bc47f;
+    --state-warning: #e0975a;
+    --state-danger: #e78484;
+    --state-info: #6ea8d8;
 
-    // Repoint Bootstrap's own custom properties at the tokens above, so
-    // stock components inherit the theme without per-component patching.
-    --bs-body-bg: var(--ink-950);
+    // Shadow is spent only on surfaces that leave the page plane. Panels are
+    // flat at rest; the hover lift is what makes elevation carry information.
+    --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.45);
+    --shadow-2: 0 6px 16px rgba(0, 0, 0, 0.5);
+    --shadow-3: 0 20px 48px rgba(0, 0, 0, 0.6);
+
+    // A hovered surface. Dark steps up to ink-850; light steps down to ink-750,
+    // because the light ink-850/800/900 are all white and a white-on-white
+    // hover would carry no information. Both are design.md values.
+    --surface-hover: var(--ink-850);
+
+    // Chrome that sits over content it must not hide (the Leaflet attribution
+    // over map tiles) and the modal scrim.
+    --overlay-surface: rgba(10, 12, 15, 0.9);
+    --backdrop: rgba(0, 0, 0, 0.55);
+
+    // Skeleton fill and the pulse it rides. Distinct from the panel surface so
+    // a shimmer over a panel is still visible.
+    --skeleton-base: #1f252d;
+
+    // Radius values, each with a job. Pill is spelled inline where it is used.
+    --r-mark: 3px;
+    --r-control: 6px;
+    --r-overlay: 10px;
+
+    // One curve, two durations. Interaction only - no ambient motion.
+    --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+    --fast: 140ms;
+    --slow: 220ms;
+
+    // Repoint Bootstrap's own custom properties at the tokens above, so stock
+    // components inherit the theme without per-component patching. Links take
+    // body colour: amber is spent on the primary action, not on links.
+    --bs-body-bg: var(--ink-1000);
     --bs-body-color: var(--text);
-    --bs-emphasis-color: #fff;
+    --bs-emphasis-color: var(--text);
     --bs-secondary-color: var(--text-dim);
     --bs-tertiary-color: var(--text-faint);
     --bs-border-color: var(--line);
-    --bs-secondary-bg: var(--ink-900);
-    --bs-tertiary-bg: var(--ink-850);
-    --bs-body-font-family: 'Space Grotesk Variable', system-ui, sans-serif;
     --bs-border-color-translucent: var(--line);
+    --bs-secondary-bg: var(--ink-900);
+    --bs-tertiary-bg: var(--ink-800);
+    --bs-body-font-family: 'IBM Plex Sans Variable', system-ui, sans-serif;
+    --bs-font-monospace: 'IBM Plex Mono', ui-monospace, monospace;
+    --bs-link-color: var(--text);
+    --bs-link-hover-color: var(--text);
+}
+
+/* Light theme. The same token names, re-pointed: the ink ramp becomes a cool
+   near-white neutral and amber text steps down so it still clears 4.5:1.
+   Deliberately not a cream - the only warm thing on screen is the accent.
+   The theme attribute lives on <html> so these tokens re-resolve the --bs-*
+   block above (a custom property substitutes var() where it is declared, not
+   where it is inherited). */
+[data-theme='light'] {
+    --ink-1000: #f4f5f7;
+    --ink-950: #fafbfc;
+    --ink-900: #ffffff;
+    --ink-850: #ffffff;
+    --ink-800: #ffffff;
+    --ink-750: #edeff2;
+    --ink-700: #e4e7eb;
+
+    --line: rgba(16, 20, 26, 0.09);
+    --line-strong: rgba(16, 20, 26, 0.18);
+    --lip: rgba(255, 255, 255, 0.9);
+
+    // Worst case (pressed ink-700): text 14.64:1, dim 6.00:1, faint 4.98:1.
+    --text: #12161b;
+    --text-dim: #4e565f;
+    --text-faint: #5a626c;
+
+    --amber: #e9a23b;
+    --amber-hot: #f7bc63;
+    --amber-ink: #1a1204;
+    // #8a5a0e, not the bright amber: #e9a23b is about 1.9:1 on a light panel.
+    // Worst case 4.77:1 on the pressed surface.
+    --amber-text: #8a5a0e;
+    --amber-wash: rgba(233, 162, 59, 0.14);
+
+    --state-success: #12633a;
+    --state-warning: #92400e;
+    --state-danger: #b3261e;
+    --state-info: #1f5fa8;
+
+    --shadow-1: 0 1px 2px rgba(16, 20, 26, 0.06), 0 1px 1px rgba(16, 20, 26, 0.04);
+    --shadow-2: 0 6px 16px rgba(16, 20, 26, 0.09);
+    --shadow-3: 0 20px 48px rgba(16, 20, 26, 0.16);
+
+    --surface-hover: var(--ink-750);
+
+    --overlay-surface: rgba(250, 251, 252, 0.9);
+    --backdrop: rgba(16, 20, 26, 0.3);
+
+    --skeleton-base: #e4e7eb;
 }
 
 /* ==========================================================================
@@ -50,23 +158,23 @@
    ========================================================================== */
 
 body {
-    background-color: var(--ink-950);
+    background-color: var(--ink-1000);
     color: var(--text);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
 }
 
 h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6 {
-    letter-spacing: -0.02em;
-    color: #fff;
+    letter-spacing: -0.01em;
+    color: var(--text);
 }
 
-// Small uppercase labels with wide tracking. Used for column headers,
-// section eyebrows and stat captions.
+// Small uppercase labels with the 0.08em tracking the direction fixes. Column
+// headers, section eyebrows and metric labels all sit on this one rule.
 .eyebrow {
-    font-size: 0.6875rem;
+    font-size: 0.6875rem; // 11px
     font-weight: 500;
-    letter-spacing: 0.14em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--text-faint);
 }
@@ -75,11 +183,16 @@ h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6 {
     color: var(--text-dim);
 }
 
+.text-faint {
+    color: var(--text-faint);
+}
+
 a {
     text-underline-offset: 0.2em;
 }
 
-// Numerals and codes align in columns.
+// Numerals and codes align in columns. The motif is the measurement, so every
+// figure is tabular mono.
 .mono,
 .tabular {
     font-family: $font-family-monospace;
@@ -87,13 +200,21 @@ a {
     font-variant-numeric: tabular-nums;
 }
 
+// The keyboard focus ring: 2px, 2px offset. --amber-text resolves to the dark
+// amber on dark and to the darker amber on light, so the ring clears the 3:1
+// non-text boundary floor on both. design.md writes the ring as --amber, but
+// #e9a23b measures about 1.9:1 on the light page background, so the text token
+// is used instead; the two are the same value in dark. Form controls below
+// suppress their own box-shadow so this is the only ring.
 :focus-visible {
-    outline: 2px solid var(--amber);
+    outline: 2px solid var(--amber-text);
     outline-offset: 2px;
 }
 
 /* ==========================================================================
    Shell
+   Section headers (the app header and every panel head) sit on the same
+   hairline, so the weight never varies.
    ========================================================================== */
 
 .app-shell {
@@ -112,43 +233,52 @@ a {
     flex: 0 0 auto;
     background-color: var(--ink-900);
     border-bottom: 1px solid var(--line);
-    padding: 1.25rem 1rem;
+    padding: 1rem;
 }
 
 @media (min-width: 768px) {
     .app-sidebar {
-        width: 16rem;
+        width: 14.5rem; // 232px rail
         border-bottom: 0;
         border-right: 1px solid var(--line);
-        padding: 1.5rem 1.125rem;
+        padding: 1.5rem 0.75rem;
+        // Sticks beside the pinned header and scrolls on its own, so it never
+        // leaves the header floating over an empty gutter.
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        overflow-y: auto;
     }
 }
 
 .app-brand {
     display: flex;
     align-items: center;
-    gap: 0.625rem;
-    color: #fff;
+    gap: 0.5rem;
+    color: var(--text);
     text-decoration: none;
     font-weight: 600;
     letter-spacing: -0.01em;
-    margin-bottom: 1.75rem;
+    margin-bottom: 1.5rem;
 }
 
 .app-brand:hover {
-    color: #fff;
+    color: var(--text);
 }
 
+/* One amber mark, not three: the pin is the "measured and placed" glyph, so the
+   chip around it stays neutral and the accent is not spent on a background and
+   a border at once. */
 .app-brand__mark {
     display: grid;
     place-items: center;
     width: 2rem;
     height: 2rem;
-    border-radius: 0.375rem;
-    background: var(--amber-wash);
-    border: 1px solid rgba(233, 162, 59, 0.28);
-    color: var(--amber);
-    font-size: 1rem;
+    border-radius: var(--r-mark);
+    background: var(--ink-800);
+    border: 1px solid var(--line-strong);
+    color: var(--amber-text);
+    font-size: 1.125rem;
 }
 
 .app-nav {
@@ -166,27 +296,48 @@ a {
     }
 }
 
+// A section label inside the rail. 11px uppercase, faint - the same treatment
+// as a table header, so the rail and the data share one label style.
+.app-nav__section {
+    padding: 1rem 0.625rem 0.375rem;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+}
+
 .app-nav__link {
     display: flex;
     align-items: center;
-    gap: 0.625rem;
-    padding: 0.5rem 0.75rem;
-    border-radius: 0.375rem;
+    gap: 0.5rem;
+    min-height: 2.25rem; // 36px
+    padding: 0 0.625rem;
+    border-radius: var(--r-control);
     color: var(--text-dim);
     text-decoration: none;
-    font-size: 0.9375rem;
+    font-size: 0.875rem;
     transition: background-color var(--fast) var(--ease), color var(--fast) var(--ease);
 }
 
+.app-nav__link > i {
+    font-size: 1rem; // 16px icon
+    width: 1rem;
+    text-align: center;
+    flex: 0 0 auto;
+}
+
 .app-nav__link:hover {
-    background-color: var(--ink-800);
+    background-color: var(--surface-hover);
     color: var(--text);
 }
 
+/* The amber left edge marks the current page. That is real state, not
+   decoration, so it stays. */
 .app-nav__link.is-active {
-    background-color: var(--ink-800);
-    color: #fff;
-    box-shadow: inset 2px 0 0 var(--amber);
+    background-color: var(--ink-750);
+    color: var(--text);
+    box-shadow: inset 2px 0 0 var(--amber-text);
 }
 
 .app-main {
@@ -196,14 +347,30 @@ a {
     flex-direction: column;
 }
 
+// The shell header sits at 24px against the data regions' 16px. That contrast
+// is the RHYTHM 2 break and the only place the beat deliberately varies.
+//
+// Sticky and frosted. The two background-color lines are deliberate: the token
+// is the fallback for a browser without color-mix, the translucent mix is the
+// frosted surface. The blur sits on the header itself - never on .app-shell,
+// .app-main or .app-content, where it would become the containing block for the
+// fixed toast container. z-index 1020 keeps it above page content (Leaflet tops
+// out at 700) and below the modal (1055) and the toasts (1090).
 .app-header {
+    position: sticky;
+    top: 0;
+    z-index: 1020;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 1rem;
-    padding: 1rem 1.5rem;
+    padding: 0.75rem 1.5rem;
     border-bottom: 1px solid var(--line);
     background-color: var(--ink-950);
+    background-color: color-mix(in srgb, var(--ink-950) 88%, transparent);
+    -webkit-backdrop-filter: blur(12px) saturate(150%);
+    backdrop-filter: blur(12px) saturate(150%);
+    box-shadow: var(--shadow-1);
 }
 
 .app-header__user {
@@ -212,14 +379,47 @@ a {
     gap: 0.75rem;
 }
 
+/* The theme toggle, beside the notification bell. Icon-only, so it carries the
+   compact tap target on its own. The icon shows the theme the click leads to
+   and the name says the action in words; both are picked from [data-theme]
+   here rather than by script, so the control is correct at first paint. */
+.theme-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2rem;
+    min-height: 2rem;
+}
+
+/* Only the action on offer is shown. The inactive name is display:none, so it
+   is out of the accessibility tree and assistive tech announces one action, not
+   both; the active name keeps .visually-hidden so it is not seen. */
+.theme-toggle__icon--light,
+.theme-toggle__label--light {
+    display: none;
+}
+
+[data-theme='light'] .theme-toggle__icon--dark,
+[data-theme='light'] .theme-toggle__label--dark {
+    display: none;
+}
+
+[data-theme='light'] .theme-toggle__icon--light {
+    display: inline-block;
+}
+
+[data-theme='light'] .theme-toggle__label--light {
+    display: inline;
+}
+
 .app-content {
-    padding: 1.5rem;
+    padding: 1rem;
     flex: 1 1 auto;
 }
 
-@media (min-width: 992px) {
+@media (min-width: 768px) {
     .app-content {
-        padding: 2rem 2.25rem;
+        padding: 1.5rem;
     }
 }
 
@@ -237,14 +437,75 @@ a {
 }
 
 /* ==========================================================================
+   Action bar
+   The alignment fix. One fixed-height inline-flex bar replaces every
+   hand-assembled button row: an <a class="btn"> and a <button class="btn">
+   cannot resolve to different boxes once both children are pinned to the same
+   height and centred. No page assembles its own row.
+   ========================================================================== */
+
+.action-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.action-bar > *,
+.action-bar > form > * {
+    height: 2rem;
+    min-width: 2rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.action-bar > form {
+    display: inline-flex;
+    align-items: center;
+}
+
+// Push the controls to the trailing edge (a title on the left, actions right).
+.action-bar--end {
+    justify-content: flex-end;
+}
+
+.action-bar--sm > *,
+.action-bar--sm > form > * {
+    height: 1.75rem; // 28px
+}
+
+.action-bar--lg > *,
+.action-bar--lg > form > * {
+    height: 2.5rem; // 40px
+}
+
+/* ==========================================================================
    Panels
+   Flat at rest. Depth is the surface step plus the hairline; shadow is kept for
+   the overlays below and the one interactive case.
    ========================================================================== */
 
 .panel {
     background-color: var(--ink-900);
     border: 1px solid var(--line);
-    border-radius: 0.625rem;
+    border-radius: var(--r-control);
     overflow: hidden;
+}
+
+/* A capped panel that sits centred. The width is the reading width it always
+   had; what changes is where the leftover space goes - split either side by
+   margin-inline:auto rather than collecting on the right of a full-width
+   column. Two widths, declared here rather than as inline styles on four
+   panels. */
+.panel--narrow {
+    max-width: 40rem;
+    margin-inline: auto;
+}
+
+.panel--reading {
+    max-width: 60rem;
+    margin-inline: auto;
 }
 
 .panel__head {
@@ -252,22 +513,43 @@ a {
     align-items: center;
     justify-content: space-between;
     gap: 1rem;
-    padding: 1rem 1.25rem;
+    padding: 1rem;
     border-bottom: 1px solid var(--line);
 }
 
 .panel__body {
-    padding: 1.25rem;
+    padding: 1rem;
 }
 
 .panel__body--flush {
     padding: 0;
 }
 
-/* A panel whose body should take the height the panel is given, rather than the
-   height of its own content. Used where a panel shares a row with something
-   whose height it cannot know in advance - the profile map beside a table of
-   unknown length - so the panel stretches and the map fills it. */
+.panel__foot {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    padding: 1rem;
+    border-top: 1px solid var(--line);
+}
+
+/* The question a panel answers, or its title. Panel title is 16px/600. */
+.panel__title,
+.panel__question {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.panel__question {
+    margin-bottom: 0.25rem;
+}
+
+// A panel whose body should take the height the panel is given, rather than the
+// height of its own content. Used where a panel shares a row with something
+// whose height it cannot know in advance - a map beside a table of unknown
+// length - so the panel stretches and the map fills it.
 .panel--fill {
     display: flex;
     flex-direction: column;
@@ -287,20 +569,19 @@ a {
     min-height: 460px;
 }
 
-.stat {
-    background-color: var(--ink-900);
-    border: 1px solid var(--line);
-    border-radius: 0.625rem;
-    padding: 1rem 1.25rem;
+// An interactive panel lifts on hover: --ink-850 fill, --shadow-1 and a 1px
+// lift. The lift is real feedback, which is why it is one of the few things
+// that casts.
+.panel--interactive {
+    cursor: pointer;
+    transition: background-color var(--fast) var(--ease), box-shadow var(--fast) var(--ease),
+        transform var(--fast) var(--ease);
 }
 
-.stat__value {
-    font-size: 1.75rem;
-    font-weight: 600;
-    line-height: 1.1;
-    letter-spacing: -0.03em;
-    color: #fff;
-    font-variant-numeric: tabular-nums;
+.panel--interactive:hover {
+    background-color: var(--surface-hover);
+    box-shadow: var(--shadow-1);
+    transform: translateY(-1px);
 }
 
 /* Initials stand in for a photo, which this app has nowhere to store. Sized and
@@ -310,19 +591,618 @@ a {
     align-items: center;
     justify-content: center;
     flex: 0 0 auto;
-    width: 2.75rem;
-    height: 2.75rem;
+    width: 2.5rem;
+    height: 2.5rem;
     border: 1px solid var(--line-strong);
     border-radius: 50%;
     background-color: var(--ink-800);
-    color: var(--amber);
+    color: var(--amber-text);
     font-size: 0.875rem;
     font-weight: 600;
     letter-spacing: 0.02em;
 }
 
 /* ==========================================================================
+   Buttons
+   Five variants, three sizes, every state (design.md section 7.1). Heights are
+   pinned so a row of controls cannot diverge: 28 / 32 / 40px, 44px on touch.
+   ========================================================================== */
+
+@mixin control-shape {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem; // 6px
+    line-height: 1;
+    // The border colour comes from the variant's --bs-btn-border-color hook so a
+    // bordered variant and a transparent one share this shape.
+    border: 1px solid var(--bs-btn-border-color, transparent);
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color var(--fast) var(--ease), border-color var(--fast) var(--ease),
+        color var(--fast) var(--ease), box-shadow var(--fast) var(--ease), transform var(--fast) var(--ease);
+}
+
+.btn {
+    @include control-shape;
+
+    min-height: 2rem; // 32px, md
+    padding: 0 0.75rem;
+    font-size: 0.8125rem; // 13
+    font-weight: 500;
+    border-radius: var(--r-control);
+}
+
+// An icon inside a labelled button is 14px; icon-only buttons are square.
+.btn > i {
+    font-size: 0.875rem;
+    line-height: 1;
+}
+
+.btn-sm {
+    min-height: 1.75rem; // 28px
+    padding: 0 0.625rem;
+    font-size: 0.75rem; // 12
+    gap: 0.375rem;
+}
+
+.btn-lg {
+    min-height: 2.5rem; // 40px
+    padding: 0 1rem;
+    font-size: 0.875rem; // 14
+    font-weight: 600;
+    gap: 0.5rem;
+}
+
+.btn-icon {
+    padding: 0;
+    width: 2rem;
+    min-width: 2rem;
+}
+
+.btn-icon.btn-sm {
+    width: 1.75rem;
+    min-width: 1.75rem;
+}
+
+.btn-icon.btn-lg {
+    width: 2.5rem;
+    min-width: 2.5rem;
+}
+
+// Every variant is built off Bootstrap's --bs-btn-* hooks so a state change is
+// a variable change, not a second selector.
+
+/* Amber solid takes dark ink: white on amber is 1.69:1, so any white-on-amber is
+   a defect. */
+.btn-primary {
+    --bs-btn-color: var(--amber-ink);
+    --bs-btn-bg: var(--amber);
+    --bs-btn-border-color: var(--amber);
+    --bs-btn-hover-color: var(--amber-ink);
+    --bs-btn-hover-bg: var(--amber-hot);
+    --bs-btn-hover-border-color: var(--amber-hot);
+    --bs-btn-active-color: var(--amber-ink);
+    --bs-btn-active-bg: var(--amber-hot);
+    --bs-btn-active-border-color: var(--amber-hot);
+    --bs-btn-disabled-bg: var(--ink-750);
+    --bs-btn-disabled-border-color: transparent;
+    --bs-btn-disabled-color: var(--text-faint);
+    font-weight: 600;
+}
+
+.btn-primary:hover {
+    box-shadow: var(--shadow-1);
+}
+
+.btn-primary:active {
+    transform: translateY(1px);
+}
+
+.btn-secondary,
+.btn-outline-secondary {
+    --bs-btn-color: var(--text);
+    --bs-btn-bg: var(--ink-800);
+    --bs-btn-border-color: var(--line-strong);
+    --bs-btn-hover-color: var(--text);
+    --bs-btn-hover-bg: var(--ink-750);
+    --bs-btn-hover-border-color: var(--line-strong);
+    --bs-btn-active-color: var(--text);
+    --bs-btn-active-bg: var(--ink-700);
+    --bs-btn-active-border-color: var(--line-strong);
+}
+
+// Ghost: no resting chrome. Built standalone as well as on .btn, because it is
+// used in table rows on its own.
+.btn-ghost {
+    @include control-shape;
+
+    min-height: 2rem;
+    padding: 0 0.5rem;
+    font-size: 0.8125rem;
+    border-radius: var(--r-control);
+    background-color: transparent;
+    color: var(--text-dim);
+}
+
+.btn-ghost:hover {
+    background-color: var(--ink-750);
+    color: var(--text);
+}
+
+.btn-ghost--danger:hover {
+    background-color: color-mix(in srgb, var(--state-danger) 12%, transparent);
+    color: var(--state-danger);
+}
+
+.btn-danger,
+.btn-outline-danger {
+    --bs-btn-color: var(--state-danger);
+    // A resting shape: without it a destructive confirm is bare red text until
+    // the pointer arrives. The tint stays lighter than the hover fill and the
+    // border is the hairline the badge family already uses, so rest, hover and
+    // active remain three distinct steps rather than a button that looks stuck.
+    --bs-btn-bg: color-mix(in srgb, var(--state-danger) 6%, transparent);
+    --bs-btn-border-color: color-mix(in srgb, var(--state-danger) 30%, transparent);
+    --bs-btn-hover-color: var(--state-danger);
+    --bs-btn-hover-bg: color-mix(in srgb, var(--state-danger) 12%, transparent);
+    --bs-btn-hover-border-color: color-mix(in srgb, var(--state-danger) 30%, transparent);
+    --bs-btn-active-color: var(--state-danger);
+    --bs-btn-active-bg: color-mix(in srgb, var(--state-danger) 20%, transparent);
+    --bs-btn-active-border-color: color-mix(in srgb, var(--state-danger) 30%, transparent);
+}
+
+.btn-outline-success {
+    --bs-btn-color: var(--state-success);
+    --bs-btn-bg: transparent;
+    --bs-btn-border-color: transparent;
+    --bs-btn-hover-color: var(--state-success);
+    --bs-btn-hover-bg: color-mix(in srgb, var(--state-success) 12%, transparent);
+    --bs-btn-hover-border-color: transparent;
+    --bs-btn-active-color: var(--state-success);
+    --bs-btn-active-bg: color-mix(in srgb, var(--state-success) 20%, transparent);
+    --bs-btn-active-border-color: transparent;
+}
+
+.btn-link {
+    --bs-btn-color: var(--amber-text);
+    --bs-btn-bg: transparent;
+    --bs-btn-border-color: transparent;
+    --bs-btn-hover-color: var(--amber-text);
+    --bs-btn-hover-bg: transparent;
+    --bs-btn-hover-border-color: transparent;
+    --bs-btn-active-color: var(--amber-text);
+    --bs-btn-active-bg: transparent;
+    --bs-btn-active-border-color: transparent;
+    padding-left: 0;
+    padding-right: 0;
+}
+
+.btn-link:hover {
+    text-decoration: underline;
+}
+
+// Disabled is one state everywhere: ink-750 fill, faint text, no pointer
+// events. Bootstrap's own opacity is cleared so the fill reads as intended.
+.btn:disabled,
+.btn.disabled {
+    background-color: var(--ink-750);
+    border-color: transparent;
+    color: var(--text-faint);
+    opacity: 1;
+    pointer-events: none;
+    box-shadow: none;
+    transform: none;
+}
+
+// Loading: the spinner replaces the leading icon, the label stays, and the
+// control carries aria-busy. The button keeps its width because only the icon
+// is swapped.
+.btn__spinner {
+    display: none;
+    width: 0.875rem;
+    height: 0.875rem;
+    flex: 0 0 auto;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: btn-spin 0.6s linear infinite;
+}
+
+.btn.is-loading .btn__spinner {
+    display: inline-block;
+}
+
+.btn.is-loading .btn__icon--leading {
+    display: none;
+}
+
+.btn.is-loading {
+    cursor: progress;
+}
+
+@keyframes btn-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* ==========================================================================
+   Forms
+   Height 32px (28 compact, 40 large), radius 6, fill ink-800, border
+   line-strong (design.md section 7.2).
+   ========================================================================== */
+
+.form-label {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--text-dim);
+    margin-bottom: 0.25rem;
+}
+
+.form-control,
+.form-select {
+    min-height: 2rem;
+    background-color: var(--ink-800);
+    border: 1px solid var(--line-strong);
+    color: var(--text);
+    border-radius: var(--r-control);
+    font-size: 0.8125rem; // 13
+    padding: 0.25rem 0.75rem;
+    transition: border-color var(--fast) var(--ease), background-color var(--fast) var(--ease);
+}
+
+.form-control-sm,
+.form-select-sm {
+    min-height: 1.75rem;
+    font-size: 0.75rem;
+    padding: 0 0.5rem;
+}
+
+.form-control-lg,
+.form-select-lg {
+    min-height: 2.5rem;
+    font-size: 0.875rem;
+    padding: 0 0.75rem;
+}
+
+textarea.form-control {
+    min-height: 5rem;
+    padding-top: 0.375rem;
+    padding-bottom: 0.375rem;
+}
+
+.form-control::placeholder {
+    color: var(--text-faint);
+}
+
+/* Mouse focus changes the border; keyboard focus adds the global ring. The
+   box-shadow is suppressed so there is only ever one ring. */
+.form-control:focus,
+.form-select:focus {
+    background-color: var(--ink-800);
+    border-color: var(--amber);
+    color: var(--text);
+    box-shadow: none;
+}
+
+.form-control:disabled,
+.form-select:disabled,
+.form-control[readonly] {
+    background-color: var(--ink-750);
+    border-color: var(--line);
+    color: var(--text-faint);
+    cursor: not-allowed;
+    opacity: 1;
+}
+
+/* Invalid: a danger border and a message that names what is wrong, below the
+   field in 12px danger text. */
+.form-control.is-invalid,
+.form-select.is-invalid {
+    border-color: var(--state-danger);
+    background-image: none;
+    padding-right: 0.75rem;
+}
+
+.invalid-feedback {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 0.75rem;
+    color: var(--state-danger);
+}
+
+.invalid-feedback > i {
+    margin-right: 0.25rem;
+}
+
+.form-hint {
+    font-size: 0.75rem;
+    color: var(--text-faint);
+}
+
+/* Select: Bootstrap's caret is replaced with a themed one, and the same box as
+   a text input. The caret colour is the only difference between the themes. */
+.form-select {
+    padding-right: 2rem;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23a2abb6' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.625rem center;
+    background-size: 0.625rem 0.375rem;
+}
+
+[data-theme='light'] .form-select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%234e565f' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+/* Search: a leading icon and a clear button when the field is populated. The
+   clear button only appears when there is a value, so it is styled here and
+   toggled by the page. */
+.search-field {
+    position: relative;
+}
+
+.search-field__icon {
+    position: absolute;
+    top: 50%;
+    left: 0.625rem;
+    transform: translateY(-50%);
+    color: var(--text-faint);
+    font-size: 0.875rem;
+    pointer-events: none;
+}
+
+.search-field .form-control {
+    padding-left: 2rem;
+    padding-right: 2rem;
+}
+
+.search-field__clear {
+    position: absolute;
+    top: 50%;
+    right: 0.25rem;
+    transform: translateY(-50%);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    padding: 0;
+    border: 0;
+    border-radius: var(--r-mark);
+    background: transparent;
+    color: var(--text-faint);
+    cursor: pointer;
+}
+
+.search-field__clear:hover {
+    background-color: var(--ink-750);
+    color: var(--text);
+}
+
+// Checkbox and radio: 3px radius, amber when on, a real focus ring from the
+// global rule.
+.form-check-input {
+    width: 1rem;
+    height: 1rem;
+    margin-top: 0.1875rem;
+    background-color: var(--ink-800);
+    border: 1px solid var(--line-strong);
+    transition: background-color var(--fast) var(--ease), border-color var(--fast) var(--ease);
+}
+
+.form-check-input:checked {
+    /* Bootstrap typically bakes a white tick into --bs-form-check-bg-image,
+       which on a solid amber fill measures 2.17:1. Re-point it to the ink
+       used on amber, the same technique as the switch knob below. */
+    --bs-form-check-bg-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%231a1204' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='m6 10 3 3 6-6'/%3e%3c/svg%3e");
+
+    background-color: var(--amber);
+    border-color: var(--amber);
+}
+
+.form-check-input:focus {
+    border-color: var(--amber);
+    box-shadow: none;
+}
+
+.form-check-input:disabled {
+    background-color: var(--ink-750);
+    border-color: var(--line);
+    cursor: not-allowed;
+}
+
+.form-check-label {
+    font-size: 0.875rem;
+}
+
+/* Switch: a pill track on ink-800 with a knob, amber when on. Bootstrap's knob
+   is a baked SVG custom property, so it is re-pointed per state rather than
+   fought with pseudo-elements (which do not render on an input). */
+.form-switch .form-check-input {
+    --bs-form-switch-bg: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Ccircle cx='7' cy='7' r='5' fill='%23a2abb6'/%3E%3C/svg%3E");
+
+    width: 2.125rem;
+    height: 1.125rem;
+    background-color: var(--ink-800);
+    border: 1px solid var(--line-strong);
+    background-image: var(--bs-form-switch-bg);
+    background-position: left 0.125rem center;
+    background-size: 0.75rem 0.75rem;
+    border-radius: 999px;
+    transition: background-color var(--fast) var(--ease), border-color var(--fast) var(--ease),
+        background-position var(--fast) var(--ease);
+}
+
+.form-switch .form-check-input:checked {
+    --bs-form-switch-bg: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Ccircle cx='7' cy='7' r='5' fill='%231a1204'/%3E%3C/svg%3E");
+
+    background-color: var(--amber);
+    border-color: var(--amber);
+    background-position: right 0.125rem center;
+}
+
+.form-switch .form-check-input:focus {
+    --bs-form-switch-bg: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Ccircle cx='7' cy='7' r='5' fill='%23a2abb6'/%3E%3C/svg%3E");
+}
+
+.form-switch .form-check-input:checked:focus {
+    --bs-form-switch-bg: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Ccircle cx='7' cy='7' r='5' fill='%231a1204'/%3E%3C/svg%3E");
+}
+
+[data-theme='light'] .form-switch .form-check-input,
+[data-theme='light'] .form-switch .form-check-input:focus {
+    --bs-form-switch-bg: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Ccircle cx='7' cy='7' r='5' fill='%234e565f'/%3E%3C/svg%3E");
+}
+
+/* ==========================================================================
+   Badges and alerts
+   A badge is a pill: 11px/500, 2px 8px, wash fill with a matching text colour.
+   Never carried by hue alone - it always has a text node.
+   ========================================================================== */
+
+.badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    line-height: 1;
+    padding: 0.125rem 0.5rem;
+    border: 1px solid transparent;
+    border-radius: $border-radius-pill;
+}
+
+.badge-soft {
+    background-color: var(--ink-800);
+    border-color: var(--line-strong);
+    color: var(--text-dim);
+}
+
+/* Amber as text on an amber wash, so it takes --amber-text (worst case 5.34:1
+   on the wash over a light panel). */
+.badge-amber {
+    background-color: var(--amber-wash);
+    border-color: color-mix(in srgb, var(--amber) 30%, transparent);
+    color: var(--amber-text);
+}
+
+.badge-success {
+    background-color: color-mix(in srgb, var(--state-success) 12%, transparent);
+    border-color: color-mix(in srgb, var(--state-success) 30%, transparent);
+    color: var(--state-success);
+}
+
+.badge-warning {
+    background-color: color-mix(in srgb, var(--state-warning) 12%, transparent);
+    border-color: color-mix(in srgb, var(--state-warning) 30%, transparent);
+    color: var(--state-warning);
+}
+
+.badge-danger {
+    background-color: color-mix(in srgb, var(--state-danger) 12%, transparent);
+    border-color: color-mix(in srgb, var(--state-danger) 30%, transparent);
+    color: var(--state-danger);
+}
+
+.badge-info {
+    background-color: color-mix(in srgb, var(--state-info) 12%, transparent);
+    border-color: color-mix(in srgb, var(--state-info) 30%, transparent);
+    color: var(--state-info);
+}
+
+.alert {
+    border-radius: var(--r-control);
+    border-width: 1px;
+    font-size: 0.875rem;
+}
+
+.alert-success {
+    background-color: color-mix(in srgb, var(--state-success) 10%, transparent);
+    border-color: color-mix(in srgb, var(--state-success) 28%, transparent);
+    color: var(--state-success);
+}
+
+.alert-danger {
+    background-color: color-mix(in srgb, var(--state-danger) 10%, transparent);
+    border-color: color-mix(in srgb, var(--state-danger) 28%, transparent);
+    color: var(--state-danger);
+}
+
+/* Warning is its own hue by design: an amber warning would read as the brand on
+   the one screen where the reader must slow down. Bootstrap leaves this
+   component unthemed, so it is themed here. */
+.alert-warning {
+    background-color: color-mix(in srgb, var(--state-warning) 10%, transparent);
+    border-color: color-mix(in srgb, var(--state-warning) 28%, transparent);
+    color: var(--state-warning);
+}
+
+/* Info is a state hue, not a neutral: the import notice reports something the
+   reader needs to know about the data. */
+.alert-info {
+    background-color: color-mix(in srgb, var(--state-info) 10%, transparent);
+    border-color: color-mix(in srgb, var(--state-info) 28%, transparent);
+    color: var(--state-info);
+}
+
+/* Bootstrap tints every close button white under data-bs-theme="dark". In the
+   light theme that inverted glyph sits on a light tinted alert and disappears,
+   so the light theme takes the original dark one. */
+[data-theme='light'] .btn-close {
+    filter: none;
+}
+
+/* ==========================================================================
+   Segmented control
+   Pill-radius track on ink-800, active segment on ink-750. For view switches,
+   not navigation (design.md section 7.7).
+   ========================================================================== */
+
+.segmented {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.125rem;
+    padding: 0.125rem;
+    background-color: var(--ink-800);
+    border: 1px solid var(--line-strong);
+    border-radius: $border-radius-pill;
+}
+
+.segmented__item {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    height: 1.5rem; // 24px, + 2px track padding each side = 28px
+    padding: 0 0.75rem;
+    border: 0;
+    border-radius: $border-radius-pill;
+    background: transparent;
+    color: var(--text-dim);
+    font-size: 0.75rem;
+    font-weight: 500;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color var(--fast) var(--ease), color var(--fast) var(--ease);
+}
+
+.segmented__item:hover {
+    color: var(--text);
+}
+
+.segmented__item[aria-pressed='true'],
+.segmented__item.is-active {
+    background-color: var(--ink-750);
+    color: var(--text);
+}
+
+/* ==========================================================================
    Tables
+   Row height 36px, cell padding 8px 12px, data at 13px. A dense console is
+   scanned down a column, so the vertical rhythm inside a table is constant.
    ========================================================================== */
 
 .table {
@@ -330,25 +1210,35 @@ a {
     --bs-table-color: var(--text);
     --bs-table-border-color: var(--line);
     --bs-table-striped-bg: transparent;
-    --bs-table-hover-bg: var(--ink-850);
-    --bs-table-hover-color: #fff;
+    --bs-table-hover-bg: var(--surface-hover);
+    --bs-table-hover-color: var(--text);
 
     margin-bottom: 0;
 }
 
+.table > tbody > tr {
+    height: 2.25rem; // 36px, a minimum
+}
+
+/* The column header is a section header, so it sits on the same hairline as
+   every other one. It is sticky at the top of the scroll region, on the app
+   background so rows do not show through it. */
 .table > thead > tr > th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background-color: var(--ink-950);
     font-size: 0.6875rem;
     font-weight: 500;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--text-faint);
-    border-bottom: 1px solid var(--line-strong);
-    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--line);
     white-space: nowrap;
 }
 
 .table > tbody > tr > td {
-    padding: 0.875rem 1rem;
+    font-size: 0.8125rem; // 13px
     border-color: var(--line);
     vertical-align: middle;
 }
@@ -361,8 +1251,53 @@ a {
     transition: background-color var(--fast) var(--ease);
 }
 
-// DataTables injects its own wrapper chrome; neutralise the parts that
-// clash with the panel it now lives inside.
+/* The one place the accent marks selection: a 2px amber left edge plus an amber
+   wash. */
+.table > tbody > tr.is-selected > td {
+    background-color: var(--amber-wash);
+}
+
+.table > tbody > tr.is-selected > td:first-child {
+    box-shadow: inset 2px 0 0 var(--amber-text);
+}
+
+/* A deactivated account keeps its row - its addresses and its name stay. The
+   row is dimmed through the text tokens, not opacity, so every pairing still
+   clears 4.5:1 (--text-dim worst case 5.98:1 dark, 6.00:1 light). */
+.table > tbody > tr.is-deactivated > td,
+.table > tbody > tr.is-deactivated .app-avatar {
+    color: var(--text-dim);
+}
+
+// Numeric and measurement cells are mono, tabular, right-aligned so a column
+// compares by eye.
+.cell-num {
+    font-family: $font-family-monospace;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+// Sortable headers carry a caret; unsorted-but-sortable is not styled as sorted.
+.table > thead > tr > th.sortable::after {
+    content: '\2195'; // up-down arrow, only as an affordance on a sortable head
+    margin-left: 0.375rem;
+    color: var(--text-faint);
+}
+
+.table > thead > tr > th.sort-asc::after,
+.table > thead > tr > th.sort-desc::after {
+    color: var(--text-dim);
+}
+
+// A scroll wrapper so the sticky header has a scroll region. Applied by the
+// screen where a table is taller than the panel.
+.table-scroll {
+    max-height: 60vh;
+    overflow: auto;
+}
+
+// DataTables writes its own wrapper chrome; neutralise the parts that clash
+// with the panel it lives inside.
 .dataTables_wrapper {
     color: var(--text);
 }
@@ -370,7 +1305,7 @@ a {
 .dataTables_wrapper .row:first-child,
 .dataTables_wrapper .row:last-child {
     margin: 0;
-    padding: 0.875rem 1.25rem;
+    padding: 0.75rem 1rem;
     align-items: center;
 }
 
@@ -387,7 +1322,7 @@ a {
 .dataTables_wrapper .dataTables_info,
 .dataTables_wrapper .dataTables_paginate {
     color: var(--text-dim);
-    font-size: 0.875rem;
+    font-size: 0.8125rem;
 }
 
 .dataTables_wrapper .dataTables_filter input,
@@ -395,257 +1330,218 @@ a {
     background-color: var(--ink-800);
     border: 1px solid var(--line-strong);
     color: var(--text);
-    border-radius: 0.375rem;
-    padding: 0.3rem 0.6rem;
+    border-radius: var(--r-control);
+    min-height: 2rem;
+    padding: 0.25rem 0.5rem;
 }
 
 .dataTables_wrapper .dataTables_filter input:focus,
 .dataTables_wrapper .dataTables_length select:focus {
     border-color: var(--amber);
-    box-shadow: 0 0 0 3px var(--amber-wash);
     outline: none;
 }
 
+// The table toolbar is DataTables' own markup, so it never passes through
+// `.action-bar`. It needs the same fix: one flex row, and a pinned height on
+// each child so an <a> and a <button> resolve to the same box.
+.dt-buttons {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.dt-buttons > * {
+    height: 2rem;
+    min-width: 2rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+// The toolbar's own Export button keeps its green text but takes the box its
+// siblings have. Scoped here, not on the variant, so .btn-outline-success stays
+// a ghost everywhere else in the app.
+.dt-buttons .btn-outline-success {
+    --bs-btn-bg: var(--ink-800);
+    --bs-btn-border-color: var(--line-strong);
+    --bs-btn-hover-border-color: var(--line-strong);
+    --bs-btn-active-border-color: var(--line-strong);
+}
+
+/* Pagination: 32px controls, the current page marked with amber text, not an
+   amber fill. */
 .page-link {
+    min-height: 2rem;
+    min-width: 2rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     background-color: transparent;
-    border-color: var(--line);
+    border-color: transparent;
+    border-radius: var(--r-mark);
     color: var(--text-dim);
+    transition: background-color var(--fast) var(--ease), color var(--fast) var(--ease);
 }
 
 .page-link:hover {
     background-color: var(--ink-800);
-    border-color: var(--line-strong);
-    color: #fff;
+    color: var(--text);
 }
 
 .page-item.active .page-link {
-    background-color: var(--amber-wash);
-    border-color: rgba(233, 162, 59, 0.35);
-    color: var(--amber-hot);
+    background-color: transparent;
+    border-color: transparent;
+    color: var(--amber-text);
+    font-weight: 600;
 }
 
 .page-item.disabled .page-link {
     background-color: transparent;
-    border-color: var(--line);
+    border-color: transparent;
     color: var(--text-faint);
 }
 
-/* ==========================================================================
-   Buttons
-   ========================================================================== */
-
-.btn {
-    font-weight: 500;
-    transition: background-color var(--fast) var(--ease), border-color var(--fast) var(--ease),
-        color var(--fast) var(--ease), transform var(--fast) var(--ease);
+/* A failed list fetch. The stock table would look empty rather than broken, so
+   the wrapper is hidden and this message names the cause and the next step.
+   A first run and a filtered-to-nothing list read differently: those are
+   DataTables' own emptyTable and zeroRecords, set from the host's data
+   attributes in app.js. */
+.skeleton-host.table--failed .dataTables_wrapper {
+    display: none;
 }
 
-.btn:active {
-    transform: translateY(1px);
-}
-
-.btn-primary {
-    --bs-btn-color: #1a1206;
-    --bs-btn-bg: var(--amber);
-    --bs-btn-border-color: var(--amber);
-    --bs-btn-hover-color: #1a1206;
-    --bs-btn-hover-bg: var(--amber-hot);
-    --bs-btn-hover-border-color: var(--amber-hot);
-    --bs-btn-active-color: #1a1206;
-    --bs-btn-active-bg: var(--amber);
-    --bs-btn-active-border-color: var(--amber);
-    --bs-btn-disabled-bg: var(--amber);
-    --bs-btn-disabled-border-color: var(--amber);
-    --bs-btn-disabled-color: #1a1206;
-    font-weight: 600;
-}
-
-.btn-outline-secondary {
-    --bs-btn-color: var(--text-dim);
-    --bs-btn-border-color: var(--line-strong);
-    --bs-btn-hover-bg: var(--ink-800);
-    --bs-btn-hover-border-color: var(--line-strong);
-    --bs-btn-hover-color: #fff;
-    --bs-btn-active-bg: var(--ink-750);
-    --bs-btn-active-border-color: var(--line-strong);
-    --bs-btn-active-color: #fff;
-}
-
-.btn-outline-danger {
-    --bs-btn-color: #e57373;
-    --bs-btn-border-color: rgba(229, 115, 115, 0.3);
-    --bs-btn-hover-bg: rgba(229, 115, 115, 0.12);
-    --bs-btn-hover-border-color: rgba(229, 115, 115, 0.5);
-    --bs-btn-hover-color: #ffb4b4;
-    --bs-btn-active-bg: rgba(229, 115, 115, 0.2);
-    --bs-btn-active-border-color: rgba(229, 115, 115, 0.5);
-    --bs-btn-active-color: #ffb4b4;
-}
-
-.btn-outline-success {
-    --bs-btn-color: #7bc47f;
-    --bs-btn-border-color: rgba(123, 196, 127, 0.3);
-    --bs-btn-hover-bg: rgba(123, 196, 127, 0.12);
-    --bs-btn-hover-border-color: rgba(123, 196, 127, 0.5);
-    --bs-btn-hover-color: #a5dba8;
-    --bs-btn-active-bg: rgba(123, 196, 127, 0.2);
-    --bs-btn-active-border-color: rgba(123, 196, 127, 0.5);
-    --bs-btn-active-color: #a5dba8;
-}
-
-.btn-ghost {
-    background-color: transparent;
-    border: 1px solid transparent;
+/* A shared empty or failed state for a data view. Centred, quiet, and always a
+   sentence the reader can act on rather than a blank panel. */
+.table-state {
+    padding: 2rem 1rem;
+    text-align: center;
     color: var(--text-dim);
-    padding: 0.25rem 0.5rem;
-    border-radius: 0.375rem;
-    font-size: 0.8125rem;
-    text-decoration: none;
 }
 
-.btn-ghost:hover {
-    background-color: var(--ink-800);
-    color: #fff;
+.table-state--failed {
+    display: none;
 }
 
-.btn-ghost--danger:hover {
-    background-color: rgba(229, 115, 115, 0.12);
-    color: #e57373;
+.skeleton-host.table--failed .table-state--failed {
+    display: block;
 }
 
 /* ==========================================================================
-   Forms
+   Metric block and metric band
+   The component the product identity lives in. A value is never rendered
+   without its label, never larger than 28px, and its unit sits beside it on the
+   baseline so the block stays one line (design.md section 7.4).
    ========================================================================== */
 
-.form-label {
-    font-size: 0.8125rem;
-    font-weight: 500;
-    color: var(--text-dim);
-    margin-bottom: 0.3rem;
+.metric-band {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: stretch;
+    gap: 1.5rem;
+    // The RHYTHM 2 break: 24px against the 16px every data region uses.
+    padding: 1.5rem;
+    background-color: var(--ink-900);
+    border: 1px solid var(--line);
+    border-radius: var(--r-control);
 }
 
-.form-control,
-.form-select {
-    background-color: var(--ink-800);
-    border: 1px solid var(--line-strong);
-    color: var(--text);
-    padding: 0.5rem 0.75rem;
-    transition: border-color var(--fast) var(--ease), box-shadow var(--fast) var(--ease);
+.metric {
+    flex: 1 1 9rem;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 }
 
-.form-control::placeholder {
-    color: var(--text-faint);
+// One lead block at roughly double the flex weight. Four equal cards is the
+// composition this avoids.
+.metric--lead {
+    flex: 2 1 16rem;
 }
 
-.form-control:focus,
-.form-select:focus {
-    background-color: var(--ink-800);
-    border-color: var(--amber);
-    color: var(--text);
-    box-shadow: 0 0 0 3px var(--amber-wash);
-}
-
-.form-control.is-invalid,
-.form-select.is-invalid {
-    border-color: rgba(229, 115, 115, 0.6);
-    background-image: none;
-}
-
-.form-control.is-invalid:focus {
-    box-shadow: 0 0 0 3px rgba(229, 115, 115, 0.15);
-}
-
-.form-check-input {
-    background-color: var(--ink-800);
-    border-color: var(--line-strong);
-}
-
-.form-check-input:checked {
-    background-color: var(--amber);
-    border-color: var(--amber);
-}
-
-.form-check-input:focus {
-    border-color: var(--amber);
-    box-shadow: 0 0 0 3px var(--amber-wash);
-}
-
-.form-check-label {
-    font-size: 0.9375rem;
-}
-
-.invalid-feedback {
-    font-size: 0.8125rem;
-    color: #e57373;
-}
-
-.form-hint {
-    font-size: 0.8125rem;
-    color: var(--text-faint);
-}
-
-/* ==========================================================================
-   Badges and alerts
-   ========================================================================== */
-
-.badge {
-    font-weight: 500;
+.metric__label {
+    margin-bottom: 0.25rem;
     font-size: 0.6875rem;
-    letter-spacing: 0.04em;
-    padding: 0.25em 0.55em;
-    border-radius: 0.25rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-faint);
 }
 
-.badge-soft {
-    background-color: var(--ink-800);
-    border: 1px solid var(--line-strong);
+.metric__row {
+    display: flex;
+    align-items: baseline;
+    gap: 0.375rem;
+}
+
+.metric__value {
+    font-family: $font-family-monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 1.375rem; // 22px, supporting
+    font-weight: 500;
+    line-height: 1.1;
+    color: var(--text);
+}
+
+.metric--lead .metric__value {
+    font-size: 1.75rem; // 28px, lead - the ceiling, only here
+    letter-spacing: -0.02em;
+}
+
+.metric__unit {
+    font-size: 0.75rem;
     color: var(--text-dim);
 }
 
-.badge-amber {
-    background-color: var(--amber-wash);
-    border: 1px solid rgba(233, 162, 59, 0.3);
-    color: var(--amber-hot);
+/* The lead metric's trend. Inline data rather than a fetch, so there is no
+   skeleton: the box is reserved and the module draws the line into it. The
+   caption is a real text node because the canvas reads as nothing on its own. */
+.metric__spark {
+    position: relative;
+    width: 100%;
+    height: 40px;
+    margin-top: 0.5rem;
 }
 
-.badge-success {
-    background-color: rgba(123, 196, 127, 0.12);
-    border: 1px solid rgba(123, 196, 127, 0.3);
-    color: #a5dba8;
+.metric__spark canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
 }
 
-.alert {
-    border-radius: 0.5rem;
-    border-width: 1px;
-    font-size: 0.9375rem;
+.metric__spark-caption {
+    margin: 0.25rem 0 0;
+    font-size: 0.6875rem;
+    color: var(--text-faint);
 }
 
-.alert-success {
-    background-color: rgba(123, 196, 127, 0.1);
-    border-color: rgba(123, 196, 127, 0.28);
-    color: #a5dba8;
+.metric__delta {
+    margin-top: 0.25rem;
+    font-family: $font-family-monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.6875rem;
 }
 
-.alert-danger {
-    background-color: rgba(229, 115, 115, 0.1);
-    border-color: rgba(229, 115, 115, 0.28);
-    color: #ffb4b4;
+.metric__delta--up {
+    color: var(--state-success);
 }
 
-// Neutral rather than tinted: this one reports a fact about the data, not an
-// outcome to celebrate or a fault to fix. Bootstrap's stock info blue is a light
-// surface, which the theme never uses - and it would leave the white close
-// button invisible.
-.alert-info {
-    background-color: rgba(255, 255, 255, 0.04);
-    border-color: var(--line-strong);
-    color: var(--text-dim);
+.metric__delta--down {
+    color: var(--state-danger);
 }
+
+/* ==========================================================================
+   Overlays
+   Shadow-3, radius 10px. Panels are flat; these are the surfaces that leave the
+   page plane.
+   ========================================================================== */
 
 .modal-content {
     background-color: var(--ink-900);
     border: 1px solid var(--line-strong);
-    border-radius: 0.625rem;
+    border-radius: var(--r-overlay);
+    box-shadow: var(--shadow-3), inset 0 1px 0 var(--lip);
 }
 
 .modal-header,
@@ -653,20 +1549,198 @@ a {
     border-color: var(--line);
 }
 
+.modal-backdrop {
+    background-color: var(--backdrop);
+}
+
+.modal-backdrop.show {
+    opacity: 1;
+}
+
 .dropdown-menu {
-    background-color: var(--ink-850);
+    background-color: var(--ink-800);
     border: 1px solid var(--line-strong);
-    border-radius: 0.5rem;
+    border-radius: var(--r-overlay);
+    box-shadow: var(--shadow-3);
+    padding: 0.25rem;
 }
 
 .dropdown-item {
     color: var(--text-dim);
+    border-radius: var(--r-mark);
+    transition: background-color var(--fast) var(--ease), color var(--fast) var(--ease);
 }
 
 .dropdown-item:hover,
 .dropdown-item:focus {
+    background-color: var(--ink-750);
+    color: var(--text);
+}
+
+.toast {
+    background-color: var(--ink-900);
+    border: 1px solid var(--line-strong);
+    border-left-width: 3px;
+    border-radius: var(--r-overlay);
+    box-shadow: var(--shadow-3);
+    color: var(--text);
+}
+
+.toast--success {
+    border-left-color: var(--state-success);
+}
+
+.toast--danger {
+    border-left-color: var(--state-danger);
+}
+
+.toast--info {
+    border-left-color: var(--state-info);
+}
+
+.toast--warning {
+    border-left-color: var(--state-warning);
+}
+
+/* The stack, pinned bottom-right. .app-header is sticky at the top, so a
+   top-right stack would sit on the user menu and the theme toggle. Bottom-right
+   clears it, and it reads the same on the guest pages, which have no header at
+   all. */
+.toast-container {
+    /* Bootstrap spaces the stack with margin-bottom on every child but the
+       last; gap does the spacing here, so that variable has to be zeroed or
+       the two add up to 2rem between toasts. */
+    --bs-toast-spacing: 0;
+    position: fixed;
+    right: 1rem;
+    bottom: 1rem;
+    z-index: 1090;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    width: max-content;
+    max-width: min(24rem, calc(100vw - 2rem));
+    pointer-events: none;
+}
+
+.toast-container .toast {
+    width: 100%;
+    pointer-events: auto;
+}
+
+.toast__head {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.625rem 0.75rem 0.25rem;
+}
+
+.toast__head .btn-close {
+    flex: 0 0 auto;
+    margin: 0 0 0 auto;
+}
+
+.toast__title {
+    flex: 1 1 auto;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+/* Scrolls, so a failed-import list can be as long as it likes without pushing
+   the toast off the top of the screen. */
+.toast__body {
+    max-height: 40vh;
+    overflow-y: auto;
+    padding: 0 0.75rem 0.625rem;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: var(--text-dim);
+}
+
+/* A toast with no __head still needs breathing room above the text. */
+.toast > .toast__body:first-child {
+    padding-top: 0.625rem;
+}
+
+.popover {
+    background-color: var(--ink-900);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-overlay);
+    box-shadow: var(--shadow-2);
+}
+
+.popover-header {
     background-color: var(--ink-800);
-    color: #fff;
+    border-bottom: 1px solid var(--line);
+    color: var(--text);
+    border-top-left-radius: var(--r-overlay);
+    border-top-right-radius: var(--r-overlay);
+}
+
+.popover-body {
+    color: var(--text-dim);
+}
+
+.offcanvas {
+    background-color: var(--ink-900);
+    color: var(--text);
+    border-color: var(--line-strong);
+}
+
+/* Tooltip: 12px text on ink-800, shadow-2, radius 6. The 220ms in / 0ms out
+   delay is set on the trigger by the screen. */
+.tooltip-inner {
+    background-color: var(--ink-800);
+    color: var(--text);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-control);
+    box-shadow: var(--shadow-2);
+    font-size: 0.75rem;
+}
+
+.bs-tooltip-top .tooltip-arrow::before { border-top-color: var(--line-strong); }
+.bs-tooltip-bottom .tooltip-arrow::before { border-bottom-color: var(--line-strong); }
+.bs-tooltip-start .tooltip-arrow::before { border-left-color: var(--line-strong); }
+.bs-tooltip-end .tooltip-arrow::before { border-right-color: var(--line-strong); }
+
+/* Drawer: right side, 420px, radius 10px on the leading edge only. Carries the
+   audit diff. */
+.drawer {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1055;
+    width: 420px;
+    max-width: 100%;
+    display: flex;
+    flex-direction: column;
+    background-color: var(--ink-900);
+    border-left: 1px solid var(--line-strong);
+    border-radius: var(--r-overlay) 0 0 var(--r-overlay);
+    box-shadow: var(--shadow-3);
+    transform: translateX(100%);
+    transition: transform var(--slow) var(--ease);
+}
+
+.drawer.is-open {
+    transform: translateX(0);
+}
+
+.drawer__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem;
+    border-bottom: 1px solid var(--line);
+}
+
+.drawer__body {
+    flex: 1 1 auto;
+    overflow: auto;
+    padding: 1rem;
 }
 
 /* ==========================================================================
@@ -681,7 +1755,7 @@ a {
 
 .matrix th,
 .matrix td {
-    padding: 0.625rem 0.875rem;
+    padding: 0.5rem 0.75rem;
     border-bottom: 1px solid var(--line);
     text-align: center;
 }
@@ -694,14 +1768,14 @@ a {
 .matrix thead th {
     font-size: 0.6875rem;
     font-weight: 500;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--text-faint);
-    border-bottom: 1px solid var(--line-strong);
+    border-bottom: 1px solid var(--line);
 }
 
 .matrix tbody tr:hover {
-    background-color: var(--ink-850);
+    background-color: var(--surface-hover);
 }
 
 /* The readable label, with the machine name as its own line beneath. The mono
@@ -720,155 +1794,56 @@ a {
     color: var(--text-dim);
 }
 
+/* The role row carries three controls on one line: the role select, Update and
+   Deactivate. Bootstrap sets .form-select to width: 100%, so inside the flex
+   row the select claims the line and wraps the buttons under it. Constrain the
+   select here rather than globally - .form-select and .action-bar are both used
+   across the app. */
+.rbac-actions {
+    flex-wrap: nowrap;
+}
+
+.rbac-actions .form-select {
+    width: auto;
+    flex: 1 1 auto;
+    min-width: 6rem;
+}
+
+
 /* ==========================================================================
-   Landing
+   Empty states
+   An icon, a short title, one line naming the cause, and one action. First run,
+   filtered-to-nothing and no-permission are different states and read
+   differently.
    ========================================================================== */
 
-.landing {
-    position: relative;
-    min-height: 100vh;
+.empty-state {
     display: flex;
     flex-direction: column;
-    overflow: hidden;
-}
-
-// A single soft amber bloom behind the hero. One light source, low opacity,
-// no stacked gradients.
-.landing::before {
-    content: '';
-    position: absolute;
-    top: -18rem;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 52rem;
-    height: 38rem;
-    background: radial-gradient(ellipse at center, rgba(233, 162, 59, 0.13), transparent 68%);
-    pointer-events: none;
-}
-
-.landing__inner {
-    position: relative;
-    flex: 1 1 auto;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    max-width: 68rem;
-    width: 100%;
-    margin: 0 auto;
-    padding: 2rem 1.5rem 3rem;
-}
-
-.landing__nav {
-    display: flex;
     align-items: center;
-    justify-content: space-between;
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    padding: 1.5rem;
-}
-
-.landing__title {
-    font-size: clamp(2.25rem, 6vw, 4rem);
-    font-weight: 600;
-    line-height: 1.04;
-    letter-spacing: -0.04em;
-    margin: 0 0 1.25rem;
-    max-width: 20ch;
-}
-
-.landing__lede {
-    font-size: clamp(1rem, 1.6vw, 1.1875rem);
+    padding: 3rem 1.5rem;
+    text-align: center;
     color: var(--text-dim);
-    max-width: 52ch;
-    line-height: 1.6;
-    margin-bottom: 2rem;
 }
 
-.landing__actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-}
-
-.landing__grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 1rem;
-    margin-top: 4rem;
-    padding-top: 2rem;
-    border-top: 1px solid var(--line);
-}
-
-@media (min-width: 768px) {
-    // auto-fit rather than a fixed three, so the row stays balanced whatever
-    // number of feature cards the landing page happens to have.
-    .landing__grid {
-        grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
-    }
-}
-
-.feature__index {
-    font-family: $font-family-monospace;
-    font-size: 0.6875rem;
-    color: var(--amber);
+.empty-state i {
+    font-size: 1.75rem;
+    color: var(--text-faint);
+    display: block;
     margin-bottom: 0.75rem;
 }
 
-.feature__title {
-    font-size: 1rem;
+.empty-state__title {
+    margin: 0 0 0.25rem;
+    font-size: 0.875rem;
     font-weight: 600;
-    color: #fff;
-    margin-bottom: 0.375rem;
+    color: var(--text);
 }
 
-.feature__body {
-    font-size: 0.9375rem;
-    color: var(--text-dim);
-    line-height: 1.55;
-    margin: 0;
-}
-
-/* ==========================================================================
-   Auth screens
-   ========================================================================== */
-
-.auth-shell {
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 2rem 1.5rem;
-}
-
-.auth-card {
-    width: 100%;
-    max-width: 24rem;
-}
-
-.auth-card__head {
-    margin-bottom: 1.75rem;
-}
-
-.auth-card__title {
-    font-size: 1.5rem;
-    font-weight: 600;
-    letter-spacing: -0.03em;
-    margin: 0 0 0.375rem;
-}
-
-.auth-card__sub {
-    color: var(--text-dim);
-    font-size: 0.9375rem;
-    margin: 0;
-}
-
-.auth-card__foot {
-    margin-top: 1.5rem;
-    padding-top: 1.25rem;
-    border-top: 1px solid var(--line);
-    font-size: 0.9375rem;
+.empty-state__body {
+    margin: 0 0 1rem;
+    max-width: 44ch;
+    font-size: 0.8125rem;
     color: var(--text-dim);
 }
 
@@ -880,17 +1855,10 @@ a {
     border-top: 1px solid var(--line);
 }
 
-.empty-state {
-    padding: 3rem 1.5rem;
-    text-align: center;
-    color: var(--text-dim);
-}
-
-.empty-state i {
-    font-size: 1.75rem;
-    color: var(--text-faint);
-    display: block;
-    margin-bottom: 0.75rem;
+/* Bootstrap ships no min-width utility, and text-truncate needs it inside a
+   flex child or the text pushes the row wider than its column. */
+.min-w-0 {
+    min-width: 0;
 }
 
 /* ==========================================================================
@@ -912,13 +1880,13 @@ a {
     justify-content: center;
     height: 220px;
     color: var(--text-faint);
-    font-size: 0.9375rem;
+    font-size: 0.875rem;
 }
 
 /* The generic overlay has no padding of its own; the skeleton rows need the
    same inset the chart's plot area will have. */
 .skeleton-overlay--chart {
-    padding: 1.25rem;
+    padding: 1rem;
 }
 
 /* ==========================================================================
@@ -941,10 +1909,10 @@ a {
     justify-content: center;
     height: 220px;
     color: var(--text-faint);
-    font-size: 0.9375rem;
+    font-size: 0.875rem;
 }
 
-/* Leaflet ships light chrome; pull it into the dark surface. */
+/* Leaflet ships light chrome; pull it into the themed surface. */
 .leaflet-container {
     background: var(--ink-900);
     font-family: var(--bs-body-font-family);
@@ -958,8 +1926,14 @@ a {
     box-shadow: none;
 }
 
+/* The wrapper is a popover above the map, so it is one of the few things that
+   earns elevation. */
+.leaflet-popup-content-wrapper {
+    box-shadow: var(--shadow-2);
+}
+
 .leaflet-popup-content {
-    margin: 0.75rem 0.9rem;
+    margin: 0.75rem 1rem;
     font-size: 0.8125rem;
     line-height: 1.5;
 }
@@ -979,8 +1953,11 @@ a {
     color: var(--text);
 }
 
+/* The attribution is required chrome over map tiles, which can be any colour,
+   so it sits on its own themed surface rather than a dark literal - that
+   literal did not flip and put light-theme text at 1.38:1. */
 .leaflet-control-attribution {
-    background: rgba(8, 9, 11, 0.72) !important;
+    background: var(--overlay-surface) !important;
     color: var(--text-faint) !important;
     font-size: 0.6875rem;
 }
@@ -996,94 +1973,62 @@ a {
 // Marks a pin that is a stand-in rather than a position - the amber of the
 // dashed marker it belongs to, so the popup and the pin agree.
 .map__approx {
-    color: var(--amber);
+    color: var(--amber-text);
 }
 
-/* ==========================================================================
-   Demo account picker (sign-in)
-   ========================================================================== */
-
-.demo-picker {
-    margin-bottom: 1.25rem;
-    padding: 0.9rem 1rem 1rem;
-    border: 1px solid var(--line);
-    border-radius: var(--border-radius, 0.375rem);
-    background: var(--ink-850);
-}
-
-.demo-picker__head {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 0.75rem;
-    margin-bottom: 0.7rem;
-}
-
-.demo-picker__note {
-    font-size: 0.75rem;
-    color: var(--text-faint);
-}
-
-.demo-picker__row {
-    display: flex;
-    gap: 0.5rem;
-}
-
-.demo-picker__row .form-select {
-    flex: 1 1 auto;
-    min-width: 0;
-}
-
-.demo-picker__row .btn {
-    flex: 0 0 auto;
-}
-
-.auth-divider {
+/* The region caption the map builds for itself when a region is focused. Built
+   by map.js inside the container, so both the dashboard and the profile page
+   get it without either view knowing. Sits above Leaflet's panes (which top
+   out at 700) and clear of the zoom control in the top-left corner. */
+.map__focus {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    z-index: 800;
     display: flex;
     align-items: center;
-    gap: 0.75rem;
-    margin: 0 0 1.25rem;
-    font-size: 0.75rem;
-    color: var(--text-faint);
+    gap: 0.5rem;
+    max-width: calc(100% - 1.5rem);
+    padding: 0.25rem 0.25rem 0.25rem 0.625rem;
+    background: var(--overlay-surface);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-control);
+    color: var(--text);
+    font-size: 0.8125rem;
 }
 
-.auth-divider::before,
-.auth-divider::after {
-    content: "";
-    flex: 1 1 auto;
-    height: 1px;
-    background: var(--line);
+/* display:flex above beats the UA [hidden] rule, so hide it explicitly. */
+.map__focus[hidden] {
+    display: none;
 }
+
+.map__focus-all {
+    flex: 0 0 auto;
+    border: 0;
+    background: none;
+    padding: 0.125rem 0.25rem;
+    color: var(--amber-text);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+}
+
+
 
 /* ==========================================================================
-   Attribution
-   ========================================================================== */
-
-.attribution {
-    margin-top: 2rem;
-    padding-top: 1.25rem;
-    border-top: 1px solid var(--line);
-    font-size: 0.75rem;
-    line-height: 1.6;
-    color: var(--text-faint);
-}
-
-.attribution a {
-    color: var(--text-dim);
-    text-decoration: none;
-}
-
-.attribution a:hover {
-    color: var(--amber);
-}
-
-/* ==========================================================================
-   Skeleton shimmer
-
+   Skeleton
    One primitive shared by every surface that waits on the network. A host
    element gets .skeleton-host, an overlay inside it gets .skeleton-overlay, and
-   JS toggles .is-loading on the host. Nothing here is per-page.
+   JS toggles .is-loading on the host. Nothing here is per-page. Skeletons pulse
+   on a 1.4s cycle at low contrast (design.md section 7.10).
    ========================================================================== */
+
+@keyframes skeleton-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.45; }
+}
 
 @keyframes skeleton-sweep {
     from { background-position: 200% 0; }
@@ -1092,24 +2037,17 @@ a {
 
 .skeleton {
     display: block;
-    background-color: var(--ink-800);
-    background-image: linear-gradient(
-        90deg,
-        transparent 0%,
-        rgba(255, 255, 255, 0.055) 50%,
-        transparent 100%
-    );
-    background-size: 200% 100%;
-    background-repeat: no-repeat;
-    border-radius: 3px;
-    animation: skeleton-sweep 1.4s linear infinite;
+    background-color: var(--skeleton-base);
+    border-radius: var(--r-mark);
+    animation: skeleton-pulse 1.4s ease-in-out infinite;
 }
 
 .skeleton--title {
-    height: 0.7rem;
+    height: 0.75rem;
 }
+
 .skeleton--row {
-    height: 0.6rem;
+    height: 0.625rem;
 }
 
 /* A host is the positioning context; the overlay covers it while loading. */
@@ -1129,16 +2067,16 @@ a {
     display: block;
 }
 
-/* The table variant lays its shimmer out as rows, one per column. */
+/* The table variant lays its shimmer out as rows at the real row height. */
 .skeleton-overlay--table {
     padding: 0.5rem 1rem;
 }
 
 .skeleton-row {
     display: flex;
-    gap: 1.25rem;
+    gap: 1rem;
     align-items: center;
-    padding: 0.7rem 0;
+    height: 2.25rem; // matches the 36px data row
     border-bottom: 1px solid var(--line);
 }
 
@@ -1155,7 +2093,7 @@ a {
 .skeleton-overlay--map {
     z-index: 800;
     display: none;
-    padding: 1.25rem;
+    padding: 1rem;
 }
 
 .map.is-loading .skeleton-overlay--map {
@@ -1169,7 +2107,7 @@ a {
     align-items: center;
     background: var(--ink-800);
     border: 1px solid var(--line-strong);
-    border-radius: 0.375rem;
+    border-radius: var(--r-control);
     padding: 0 0.75rem;
 }
 
@@ -1180,7 +2118,7 @@ a {
 
 .skeleton--field {
     width: 55%;
-    height: 0.6rem;
+    height: 0.625rem;
 }
 
 /* A full page load the user started themselves. Same sweep and same keyframes
@@ -1208,49 +2146,16 @@ a {
     display: block;
 }
 
-@media (prefers-reduced-motion: reduce) {
-    .skeleton,
-    .page-progress {
-        animation: none;
-    }
-
-    /* Without the sweep the bar needs to be visible in its own right. */
-    .page-progress.is-visible {
-        background: var(--amber);
-    }
-}
-
 /* ==========================================================================
-   Dashboard
+   Dashboard rows (recent, access)
    ========================================================================== */
-
-.stat-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-}
-
-.stat__label {
-    margin-bottom: 0.5rem;
-    font-size: 0.6875rem;
-    font-weight: 500;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--text-faint);
-}
-
-.stat__hint {
-    font-size: 0.75rem;
-    color: var(--text-faint);
-}
 
 .recent-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 1rem;
-    padding: 0.75rem 1.25rem;
+    padding: 0.75rem 1rem;
     border-bottom: 1px solid var(--line);
 }
 
@@ -1271,8 +2176,64 @@ a {
     border-bottom: 0;
 }
 
-/* Bootstrap ships no min-width utility, and text-truncate needs it inside a
-   flex child or the text pushes the row wider than its column. */
-.min-w-0 {
-    min-width: 0;
+/* ==========================================================================
+   Motion
+   Interaction feedback only. The preference turns every transition and
+   animation in the sheet off, including the ones the theme flip and hover
+   states use.
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+    // Every transition and animation in the sheet is removed, not shortened; a
+    // static skeleton and a static spinner both still read as "working".
+    *,
+    *::before,
+    *::after {
+        animation: none !important;
+        transition: none !important;
+    }
+
+    // Without the sweep the bar needs to be visible in its own right.
+    .page-progress.is-visible {
+        background: var(--amber);
+    }
 }
+
+/* ==========================================================================
+   Touch viewports
+   The 32px desktop control is the floor; on a coarse pointer every interactive
+   control gets 44px. Placed last so it overrides the desktop heights above.
+   ========================================================================== */
+
+@media (pointer: coarse) {
+    .btn,
+    .btn-sm,
+    .btn-lg,
+    .btn-ghost,
+    .form-control,
+    .form-control-sm,
+    .form-control-lg,
+    .form-select,
+    .form-select-sm,
+    .form-select-lg,
+    .page-link,
+    .app-nav__link,
+    .segmented__item {
+        min-height: 2.75rem; // 44px
+    }
+
+    .action-bar > *,
+    .action-bar > form,
+    .action-bar > form > * {
+        height: 2.75rem;
+    }
+
+    .theme-toggle {
+        min-width: 2.75rem;
+        min-height: 2.75rem;
+    }
+}
+
+// Public pages: landing, sign in, register. Kept in their own file so the
+// atlas rules sit together instead of being scattered through the app shell.
+@import 'public-pages';

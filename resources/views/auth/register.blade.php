@@ -7,8 +7,8 @@
         <div class="auth-card">
             <div class="auth-card__head">
                 <a href="{{ url('/') }}" class="app-brand">
-                    <span class="app-brand__mark"><i class="bi bi-geo-alt-fill"></i></span>
-                    <span>{{ config('app.name', 'Address Book') }}</span>
+                    <span class="app-brand__mark"><i class="bi bi-crosshair"></i></span>
+                    <span>{{ config('app.name', 'Pinpoint') }}</span>
                 </a>
 
                 <h1 class="auth-card__title">Create an account</h1>

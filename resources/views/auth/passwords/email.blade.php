@@ -7,17 +7,13 @@
         <div class="auth-card">
             <div class="auth-card__head">
                 <a href="{{ url('/') }}" class="app-brand">
-                    <span class="app-brand__mark"><i class="bi bi-geo-alt-fill"></i></span>
-                    <span>{{ config('app.name', 'Address Book') }}</span>
+                    <span class="app-brand__mark"><i class="bi bi-crosshair"></i></span>
+                    <span>{{ config('app.name', 'Pinpoint') }}</span>
                 </a>
 
                 <h1 class="auth-card__title">Reset your password</h1>
                 <p class="auth-card__sub">We will email you a link to choose a new one.</p>
             </div>
-
-            @if (session('status'))
-                <div class="alert alert-success" role="alert">{{ session('status') }}</div>
-            @endif
 
             <form method="POST" action="{{ route('password.email') }}">
                 @csrf

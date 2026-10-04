@@ -62,7 +62,7 @@
 
     <div class="d-flex align-items-baseline justify-content-between mb-3">
         <p class="eyebrow mb-0">Location</p>
-        <span class="form-hint">From the Philippine Standard Geographic Code</span>
+        <span class="form-hint">Official Philippine city list</span>
     </div>
 
     <noscript>
@@ -172,8 +172,8 @@
         </div>
     @endif
 
-    <div class="d-flex gap-2 pt-3 border-top" style="border-color: var(--line) !important;">
-        <button type="submit" class="btn btn-primary px-4">{{ $submitLabel }}</button>
+    <div class="action-bar pt-3 border-top" style="border-color: var(--line) !important;">
         <a href="{{ $cancelRoute ?? route('addresses.index') }}" class="btn btn-outline-secondary">Cancel</a>
+        <button type="submit" class="btn btn-primary px-4">{{ $submitLabel }}</button>
     </div>
 </form>

@@ -2,11 +2,13 @@
 
 namespace Tests\Feature;
 
+use App\AddressStats;
 use App\Models\Address;
 use App\Models\AddressRequest;
 use App\Models\User;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 class DashboardTest extends TestCase
@@ -102,7 +104,6 @@ class DashboardTest extends TestCase
 
         // Four addresses, one owner, two distinct cities, two distinct regions.
         $response->assertSee('4');
-        $response->assertSee('3 of 4 addresses have coordinates.');
     }
 
     public function test_an_account_with_no_role_gets_a_dashboard_not_a_403(): void
@@ -128,7 +129,6 @@ class DashboardTest extends TestCase
 
         // Two of the seven, not all seven.
         $response->assertSee('on file under your name');
-        $response->assertSee('2 of 2 addresses have coordinates.');
     }
 
     public function test_both_directory_reading_roles_get_the_owners_card(): void
@@ -224,32 +224,27 @@ class DashboardTest extends TestCase
             ->get(route('home'))
             ->assertOk()
             ->assertSee('Your locations')
-            ->assertSee(route('home.map'))
-            ->assertSee('0 of 1 addresses have coordinates.');
+            ->assertSee(route('home.map'));
     }
 
-    public function test_the_coverage_figure_counts_measurements_not_stand_ins(): void
+    /**
+     * The panel asked one question - how much of the book is actually placed -
+     * and answered it with a single figure over a strip of supporting stats.
+     * That is the shape the research names as the default AI dashboard, so it
+     * was removed rather than restyled. Nothing on the dashboard reports the
+     * figure now; the fact itself stays in the directory's Map column, the
+     * import result and each pin's own popup.
+     */
+    public function test_the_placement_panel_is_gone_from_the_dashboard(): void
     {
-        $customer = $this->userWithRole('Customer');
+        $owner = $this->userWithRole('Superadmin');
+        Address::factory()->count(2)->for($owner)->create();
 
-        // A city the dataset cannot place. The map draws it from the region
-        // centre, but nothing was ever measured for this row.
-        Address::factory()->for($customer)->create([
-            'city' => 'City of Taguig',
-            'city_code' => '1381500000',
-            'postal_code' => '1630',
-            'latitude' => null,
-            'longitude' => null,
-        ]);
-
-        // Both halves of the split, asserted together: the figure above the map
-        // stays about the data, and the caption is what explains the pin the
-        // reader is about to see.
-        $this->actingAs($customer)
+        $this->actingAs($owner)
             ->get(route('home'))
             ->assertOk()
-            ->assertSee('0 of 1 addresses have coordinates.')
-            ->assertSee('The rest are drawn at the centre of their province or region where one is known');
+            ->assertDontSee('How much of the book')
+            ->assertDontSee('addresses have coordinates');
     }
 
     public function test_an_empty_directory_renders_without_errors(): void
@@ -257,8 +252,7 @@ class DashboardTest extends TestCase
         $this->actingAs($this->userWithRole('Customer'))
             ->get(route('home'))
             ->assertOk()
-            ->assertSee('You have not asked for a change yet.')
-            ->assertSee('0 of 0 addresses have coordinates.');
+            ->assertSee('You have not asked for a change yet.');
     }
 
     public function test_the_superadmin_gets_the_chart_ranked_and_named_by_region(): void
@@ -278,9 +272,11 @@ class DashboardTest extends TestCase
         $response->assertSee('data-region-chart', false);
         $response->assertSee('By region');
 
-        // Ordered, so the ranking is asserted and not just the totals.
+        // Ordered, so the ranking is asserted and not just the totals. The
+        // capital region is labelled the way it is written in an address, not
+        // the way PSGC classifies it - see PhLocations::REGION_LABELS.
         $response->assertSeeInOrder([
-            'National Capital Region: 2 addresses',
+            'Metro Manila: 2 addresses',
             'Central Visayas: 1 address',
         ]);
 
@@ -307,7 +303,7 @@ class DashboardTest extends TestCase
             $response->assertSee('data-region-chart', false);
             $response->assertSeeInOrder([
                 'Central Visayas: 3 addresses',
-                'National Capital Region: 1 address',
+                'Metro Manila: 1 address',
             ]);
         }
     }
@@ -316,8 +312,13 @@ class DashboardTest extends TestCase
      * The Customer's column used to be the six most recently added addresses,
      * which said nothing the address table does not already say. It is now the
      * one thing this role does that no other panel mentions.
+     *
+     * The panel in that column and the chart row under it used to share one
+     * condition, so handing this role a chart swapped their request list away to
+     * get it. They are two conditions now, and this asserts both at once: the
+     * list still in their place, the chart now on top of it.
      */
-    public function test_a_customer_gets_their_own_requests_in_place_of_recent(): void
+    public function test_a_customer_gets_their_own_requests_and_the_region_chart(): void
     {
         $customer = $this->userWithRole('Customer');
         $theirs = $this->userWithRole('Customer');
@@ -350,8 +351,8 @@ class DashboardTest extends TestCase
         // Scoped like every other figure on the page.
         $this->assertStringNotContainsString('Their Depot', $html);
 
-        $this->assertStringNotContainsString('data-region-chart', $html);
-        $this->assertStringNotContainsString('By region', $html);
+        $this->assertStringContainsString('data-region-chart', $html);
+        $this->assertStringContainsString('By region', $html);
     }
 
     public function test_the_chart_panel_replaces_recent_for_a_reader(): void
@@ -379,11 +380,74 @@ class DashboardTest extends TestCase
             ->assertDontSee('>Recent<', false);
     }
 
-    public function test_an_account_with_no_role_gets_no_chart(): void
+    /**
+     * Both halves of the same rule. With no role there is no directory to chart
+     * and no figures to band, so the page falls back to the one honest panel
+     * rather than a row of zeroes.
+     */
+    public function test_an_account_with_no_role_gets_no_chart_and_no_metric_band(): void
     {
         $this->actingAs(User::factory()->create())
             ->get(route('home'))
             ->assertOk()
-            ->assertDontSee('data-region-chart', false);
+            ->assertDontSee('data-region-chart', false)
+            ->assertDontSee('metric-band', false);
+    }
+
+    /**
+     * The lead metric's sparkline: cumulative addresses, one point per week,
+     * oldest first.
+     *
+     * Rows are dated explicitly rather than by travelling the clock forward,
+     * because the interesting case is a row that falls OUTSIDE the window - it
+     * contributes to the running total without ever owning a bucket.
+     */
+    public function test_the_trend_is_cumulative_and_ends_at_the_address_total(): void
+    {
+        $this->travelTo(Carbon::parse('2026-10-04 12:00:00'));
+
+        $admin = $this->userWithRole('Admin');
+
+        // Twenty weeks back is past the window, so this one only seeds the total.
+        Address::factory()->for($admin)->create(['created_at' => now()->subWeeks(20)]);
+        Address::factory()->for($admin)->count(2)->create(['created_at' => now()->subWeeks(3)]);
+        Address::factory()->for($admin)->create(['created_at' => now()->subWeeks(1)]);
+
+        $query = Address::query()->visibleTo($admin);
+        $points = AddressStats::trend($query);
+
+        $this->assertCount(12, $points);
+
+        // The first bucket holds only what was already on file when it opened.
+        $this->assertSame(1, $points[0]['value']);
+
+        // The last point and the figure printed beside it cannot disagree.
+        $this->assertSame(
+            AddressStats::counts($query)['addresses'],
+            end($points)['value'],
+        );
+
+        $values = array_column($points, 'value');
+        $ascending = $values;
+        sort($ascending);
+        $this->assertSame($ascending, $values, 'A cumulative series never decreases.');
+    }
+
+    /**
+     * A sparkline that ignored the scope would leak another owner's growth rate
+     * onto a Customer's own dashboard, which is the one thing this page is not
+     * allowed to do.
+     */
+    public function test_the_trend_is_scoped_to_the_rows_the_caller_can_see(): void
+    {
+        $customer = $this->userWithRole('Customer');
+        $other = $this->userWithRole('Customer');
+
+        Address::factory()->for($customer)->count(2)->create();
+        Address::factory()->for($other)->count(5)->create();
+
+        $points = AddressStats::trend(Address::query()->visibleTo($customer));
+
+        $this->assertSame(2, end($points)['value']);
     }
 }

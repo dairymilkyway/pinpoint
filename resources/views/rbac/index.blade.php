@@ -8,10 +8,7 @@
         <div class="panel__head">
             <div>
                 <p class="eyebrow mb-1">Permission matrix</p>
-                <p class="mb-0 text-dim small">
-                    Check a box to grant a permission to a role, then save. Changes take effect on the next request.
-                    <strong>{{ \App\Rbac::label($managePermission) }}</strong> is always kept on the {{ $superadminRole }} role.
-                </p>
+                <h2 class="panel__question mb-0">Grant the least authority that works.</h2>
             </div>
         </div>
 
@@ -72,7 +69,7 @@
                 </table>
             </div>
 
-            <div class="p-3 border-top d-flex justify-content-end" style="border-color: var(--line) !important;">
+            <div class="action-bar action-bar--end p-3 border-top" style="border-color: var(--line) !important;">
                 <button type="submit" class="btn btn-primary">
                     <i class="bi bi-check2"></i> <span class="ms-1">Save permissions</span>
                 </button>
@@ -82,10 +79,7 @@
 
     <div class="panel">
         <div class="panel__head">
-            <div>
-                <p class="eyebrow mb-1">User roles</p>
-                <p class="mb-0 text-dim small">Assign one role per person. A role carries its permissions with it.</p>
-            </div>
+            <p class="eyebrow mb-0">User roles</p>
         </div>
 
         <div class="table-responsive">
@@ -99,11 +93,15 @@
                 </thead>
                 <tbody>
                     @foreach ($users as $user)
-                        <tr>
+                        @php($deactivated = $user->trashed())
+                        <tr @class(['is-deactivated' => $deactivated])>
                             <td>
                                 <div class="d-flex align-items-center gap-2">
                                     <span class="app-avatar">{{ Str::of($user->name)->substr(0, 2)->upper() }}</span>
                                     <span>{{ $user->name }}</span>
+                                    @if ($deactivated)
+                                        <span class="badge badge-soft">Deactivated</span>
+                                    @endif
                                 </div>
                             </td>
                             <td class="text-dim mono" style="font-size: 0.8125rem;">{{ $user->email }}</td>
@@ -118,19 +116,38 @@
                                         <span class="text-dim small">Locked to this account.</span>
                                     </div>
                                 @else
-                                    <form method="POST" action="{{ route('rbac.users.role', $user) }}" class="d-flex gap-2">
-                                        @csrf
-                                        <label class="visually-hidden" for="role-{{ $user->id }}">Role for {{ $user->name }}</label>
-                                        <select name="role" id="role-{{ $user->id }}" class="form-select form-select-sm">
-                                            @foreach ($roles as $role)
-                                                <option value="{{ $role->name }}"
-                                                    @selected($user->hasRole($role->name))>
-                                                    {{ $role->name }}
-                                                </option>
-                                            @endforeach
-                                        </select>
-                                        <button type="submit" class="btn btn-sm btn-outline-secondary text-nowrap">Update</button>
-                                    </form>
+                                    {{-- Three controls, one line. The two forms are siblings
+                                         rather than one, because a form cannot be nested.
+                                         The select is constrained in app.scss (.rbac-actions)
+                                         so Bootstrap's .form-select { width: 100% } does not
+                                         claim the flex line and push the buttons under it. --}}
+                                    <div class="action-bar rbac-actions">
+                                        <form method="POST" action="{{ route('rbac.users.role', $user) }}">
+                                            @csrf
+                                            <label class="visually-hidden" for="role-{{ $user->id }}">Role for {{ $user->name }}</label>
+                                            <select name="role" id="role-{{ $user->id }}" class="form-select">
+                                                @foreach ($roles as $role)
+                                                    <option value="{{ $role->name }}"
+                                                        @selected($user->hasRole($role->name))>
+                                                        {{ $role->name }}
+                                                    </option>
+                                                @endforeach
+                                            </select>
+                                            <button type="submit" class="btn btn-outline-secondary text-nowrap">Update</button>
+                                        </form>
+
+                                        @if ($deactivated)
+                                            <form method="POST" action="{{ route('rbac.users.reactivate', $user) }}">
+                                                @csrf
+                                                <button type="submit" class="btn btn-outline-secondary text-nowrap">Reactivate</button>
+                                            </form>
+                                        @else
+                                            <form method="POST" action="{{ route('rbac.users.deactivate', $user) }}">
+                                                @csrf
+                                                <button type="submit" class="btn btn-danger text-nowrap">Deactivate</button>
+                                            </form>
+                                        @endif
+                                    </div>
                                 @endif
                             </td>
                         </tr>

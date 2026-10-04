@@ -4,7 +4,7 @@
 @section('heading', 'Edit address')
 
 @section('content')
-    <div class="panel" style="max-width: 60rem;">
+    <div class="panel panel--reading">
         <div class="panel__head">
             <div>
                 <p class="eyebrow mb-1">Editing</p>

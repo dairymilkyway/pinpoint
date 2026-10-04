@@ -20,6 +20,23 @@ use RuntimeException;
  */
 final class PhLocations
 {
+    /**
+     * Region names as they are written in an address, where the PSGC label is
+     * not the one people use.
+     *
+     * Metro Manila is the only case. PSGC calls the capital region "National
+     * Capital Region (NCR)", which is the right name for a classification and
+     * the wrong one for a state field - nobody writes it on an envelope. The
+     * other seventeen regions keep their own names, so the override is a map
+     * with one entry rather than a rule.
+     *
+     * Held here rather than edited into psgc-regions.json so the snapshot stays
+     * a faithful copy of the PSA release.
+     */
+    private const REGION_LABELS = [
+        '1300000000' => 'Metro Manila',
+    ];
+
     /** @var array<string, string>|null */
     private static ?array $regions = null;
 
@@ -32,7 +49,14 @@ final class PhLocations
     /** @var array<string, array{code: string, name: string, region: ?string, province: ?string, class: string}>|null */
     private static ?array $cities = null;
 
-    /** @var array<string, array{postal: string, lat: string, lng: string, place: string}>|null */
+    /**
+     * lat and lng are optional in this shape even though every row carries them
+     * today: the file is hand-maintained, and a row written without a measured
+     * position is legal. Ask positionAt() for a point rather than testing
+     * whether the row exists.
+     *
+     * @var array<string, array{postal: string, place: string, lat?: string, lng?: string}>|null
+     */
     private static ?array $coordinates = null;
 
     /** @var array<string, list<string>>|null normalized official name => city codes */
@@ -110,6 +134,27 @@ final class PhLocations
         return $cityCode === null ? null : (self::coordinateMap()[$cityCode] ?? null);
     }
 
+    /**
+     * The row's position, or null when it holds none.
+     *
+     * A geo row is allowed to carry a postal code and no coordinates. No bundled
+     * row is shaped that way today - the last two, Taguig's and Pateros', were
+     * placed from the gazetteer - but the file is hand-edited and this is what
+     * keeps such a row from being read as "placed". So callers that need a point
+     * must ask here rather than testing whether the row exists at all.
+     *
+     * @param  array<string, mixed>|null  $geo
+     * @return array{lat: float, lng: float}|null
+     */
+    private static function positionAt(?array $geo): ?array
+    {
+        if ($geo === null || blank($geo['lat'] ?? null) || blank($geo['lng'] ?? null)) {
+            return null;
+        }
+
+        return ['lat' => (float) $geo['lat'], 'lng' => (float) $geo['lng']];
+    }
+
     /** Provinces belonging to a region, ready for a <select>. */
     public static function provincesIn(?string $regionCode): array
     {
@@ -148,7 +193,15 @@ final class PhLocations
     /** Cities that have coordinates, for seeding and for map pins. */
     public static function seedableCityCodes(): array
     {
-        return array_keys(array_intersect_key(self::cities(), self::coordinateMap()));
+        // Rows that hold a position, not merely rows that exist. A postal-only
+        // row is a real row, and a caller that asked for a city it can pin would
+        // otherwise be handed one it cannot.
+        $placed = array_filter(
+            self::coordinateMap(),
+            fn (array $geo) => self::positionAt($geo) !== null,
+        );
+
+        return array_keys(array_intersect_key(self::cities(), $placed));
     }
 
     /**
@@ -172,7 +225,11 @@ final class PhLocations
      */
     public static function approximateFor(?string $cityCode): ?array
     {
-        if ($cityCode === null || self::coordinatesFor($cityCode) !== null) {
+        // Keyed off whether the city has coordinates, not whether it has a row.
+        // A row may carry only a postal code, and reading the row's presence as
+        // "placed" would drop that city off the map instead of drawing it at the
+        // centre it borrows.
+        if ($cityCode === null || self::positionAt(self::coordinatesFor($cityCode)) !== null) {
             return null;
         }
 
@@ -209,14 +266,17 @@ final class PhLocations
         $regions = [];
 
         foreach (self::cities() as $code => $city) {
-            $geo = self::coordinatesFor($code);
+            // A row without coordinates contributes nothing to average. Reading
+            // a missing lat as 0.0 would drag whichever centre the row belongs
+            // to far off the archipelago.
+            $position = self::positionAt(self::coordinatesFor($code));
 
-            if ($geo === null) {
+            if ($position === null) {
                 continue;
             }
 
-            $lat = (float) $geo['lat'];
-            $lng = (float) $geo['lng'];
+            $lat = $position['lat'];
+            $lng = $position['lng'];
 
             if (filled($city['province'])) {
                 $provinces[$city['province']] ??= [0.0, 0.0, 0];
@@ -325,6 +385,12 @@ final class PhLocations
      */
     public static function regionLabel(?string $code): ?string
     {
+        return self::REGION_LABELS[$code] ?? self::psgcRegionLabel($code);
+    }
+
+    /** The same label straight off the dataset, override or no override. */
+    private static function psgcRegionLabel(?string $code): ?string
+    {
         $name = self::regionName($code);
 
         if ($name === null) {
@@ -388,6 +454,10 @@ final class PhLocations
             self::stateFor($city),
             self::provinceName($city['province']),
             self::regionLabel($city['region']),
+            // Both halves of a rename: the override is what the app writes, but
+            // a reader who types what PSGC calls the region must still land on
+            // it. Metro Manila is the case that makes this matter.
+            self::psgcRegionLabel($city['region']),
         ];
 
         foreach ($labels as $label) {

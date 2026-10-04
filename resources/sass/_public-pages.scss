@@ -1,0 +1,442 @@
+/* ==========================================================================
+   Public pages - landing, sign in, register
+   The atlas plate: a real map from the bundled dataset, every figure set in
+   mono, a serif display line, and the features read as a map legend.
+
+   Self-contained on purpose. The .landing / .auth-* / .demo-picker /
+   .attribution selectors are defined here rather than inherited from app.scss,
+   so this partial stands on its own once those older blocks are removed.
+   Everything it must not own (.app-brand, .eyebrow, .btn-ghost, .panel,
+   .btn-primary, .btn-outline-*, .metric-*) is reused, never redefined.
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   Landing
+   -------------------------------------------------------------------------- */
+
+.landing {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+}
+
+/* Frosted to match the signed-in header. Not sticky: .landing sets
+   overflow-x: hidden, which forces overflow-y to auto and turns .landing into a
+   scroll container, so a sticky nav would stick to that box rather than the
+   viewport and never move. The surface still matches the signed-in chrome. */
+.landing__nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid var(--line);
+    background-color: var(--ink-950);
+    background-color: color-mix(in srgb, var(--ink-950) 88%, transparent);
+    -webkit-backdrop-filter: blur(12px) saturate(150%);
+    backdrop-filter: blur(12px) saturate(150%);
+}
+
+.landing__inner {
+    flex: 1 1 auto;
+    width: 100%;
+    max-width: 78rem;
+    margin: 0 auto;
+    padding: 2.5rem 1.5rem 3rem;
+}
+
+.landing__hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2rem;
+    align-items: center;
+}
+
+@media (min-width: 992px) {
+    .landing__hero {
+        grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+        gap: 3rem;
+    }
+}
+
+.landing__copy {
+    display: flex;
+    flex-direction: column;
+}
+
+.landing__title {
+    font-family: $font-family-serif;
+    font-weight: 600;
+    font-size: clamp(1.9rem, 5.2vw, 3rem);
+    line-height: 1.08;
+    letter-spacing: -0.02em;
+    margin: 0 0 1rem;
+    max-width: 20ch;
+}
+
+.landing__lede {
+    font-size: 1rem;
+    line-height: 1.65;
+    color: var(--text-dim);
+    max-width: 52ch;
+    margin: 0 0 1.75rem;
+}
+
+.landing__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+/* The plate. The map is a portrait country, so it is constrained by height and
+   centred inside the frame rather than stretched across it. */
+.landing__plate {
+    margin: 0;
+}
+
+.landing__frame {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: min(56vh, 33rem);
+    min-height: 18rem;
+    padding: 1rem;
+    background: var(--ink-950);
+    border: 1px solid var(--line);
+    border-radius: var(--r-control);
+}
+
+.atlas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+/* Placed cities are ink; the unplaced are a hollow amber ring, the same
+   distinction the app's own map draws. Colour flips with the theme because
+   both come from tokens. */
+.atlas__dot {
+    fill: var(--text);
+}
+
+.atlas__dot--approx {
+    fill: none;
+    stroke: var(--amber);
+    stroke-width: 1.6;
+}
+
+.atlas-caption {
+    margin-top: 1rem;
+    font-size: 0.75rem;
+    line-height: 1.7;
+    color: var(--text-faint);
+}
+
+.atlas-caption .mono {
+    color: var(--text-dim);
+}
+
+.landing__key {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem 1.25rem;
+    margin-top: 0.625rem;
+}
+
+.landing__key-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.75rem;
+    color: var(--text-faint);
+}
+
+.landing__swatch {
+    flex: 0 0 auto;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    background: var(--text);
+}
+
+.landing__swatch--approx {
+    background: none;
+    border: 1.5px solid var(--amber);
+}
+
+/* Four features as a legend: a numbered mark, a title, a line of body. */
+.landing__legend {
+    list-style: none;
+    margin: 3rem 0 0;
+    padding: 2rem 0 0;
+    border-top: 1px solid var(--line);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.5rem;
+}
+
+@media (min-width: 768px) {
+    .landing__legend {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1.75rem 2.5rem;
+    }
+}
+
+@media (min-width: 1200px) {
+    .landing__legend {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+}
+
+.feature__index {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    display: grid;
+    place-items: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    border: 1px solid var(--line-strong);
+    border-radius: 50%;
+    font-family: $font-family-monospace;
+    font-size: 0.6875rem;
+    color: var(--text-faint);
+    margin: 0;
+}
+
+.feature__title {
+    grid-column: 2;
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--text);
+    margin: 0 0 0.25rem;
+}
+
+.feature__body {
+    grid-column: 2;
+    font-size: 0.8125rem;
+    line-height: 1.55;
+    color: var(--text-dim);
+    margin: 0;
+}
+
+.landing__legend > li {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    column-gap: 0.75rem;
+}
+
+/* --------------------------------------------------------------------------
+   Auth shell
+   Shared by six views (login, register and the four password/verify screens),
+   so .auth-card stays a single centred card. The two-column treatment is a
+   login-only wrapper OUTSIDE the card, never a change to the card itself.
+   -------------------------------------------------------------------------- */
+
+.auth-shell {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1.5rem;
+}
+
+.auth-card {
+    width: 100%;
+    max-width: 26rem;
+    padding: 1.75rem;
+    background: var(--ink-900);
+    border: 1px solid var(--line);
+    border-radius: var(--r-control);
+}
+
+.auth-card__head {
+    margin-bottom: 1.5rem;
+}
+
+.auth-card__title {
+    font-family: $font-family-serif;
+    font-size: 1.375rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin: 0 0 0.5rem;
+}
+
+.auth-card__sub {
+    color: var(--text-dim);
+    font-size: 0.875rem;
+    line-height: 1.55;
+    margin: 0;
+}
+
+.auth-card__foot {
+    margin-top: 1.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--line);
+    font-size: 0.875rem;
+    color: var(--text-dim);
+}
+
+/* Sign-in only. A grid that seats the card beside the cartographic panel. */
+.auth-split {
+    width: 100%;
+    max-width: 62rem;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.5rem;
+}
+
+@media (min-width: 992px) {
+    .auth-split {
+        grid-template-columns: minmax(0, 26rem) minmax(0, 1fr);
+        gap: 2.5rem;
+    }
+}
+
+.auth-split .auth-card {
+    max-width: none;
+}
+
+.auth-plate {
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    padding: 1.75rem;
+    background: var(--ink-950);
+    border: 1px solid var(--line);
+    border-radius: var(--r-control);
+}
+
+@media (min-width: 992px) {
+    .auth-plate {
+        display: flex;
+    }
+}
+
+.auth-plate__frame {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: min(48vh, 26rem);
+    min-height: 16rem;
+    margin: 1rem 0;
+    padding: 0.75rem;
+}
+
+/* --------------------------------------------------------------------------
+   Demo account picker
+   A reviewer aid, not an authentication path: every card fills the real form
+   below and submits it, so the login still runs through the ordinary guard.
+   -------------------------------------------------------------------------- */
+
+.demo-picker {
+    margin: 0 0 1rem;
+    padding: 1rem;
+    background: var(--ink-800);
+    border: 1px solid var(--line);
+    border-radius: var(--r-control);
+}
+
+.demo-picker__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.demo-picker__note {
+    font-size: 0.75rem;
+    color: var(--text-faint);
+}
+
+.demo-picker__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.5rem;
+}
+
+/* Three across only once a card is wide enough to hold the role name without
+   it spilling into its neighbour. Narrower than this the cards stack. */
+@media (min-width: 576px) {
+    .demo-picker__grid {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+.demo-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    width: 100%;
+    padding: 0.5rem;
+    text-align: left;
+    background: var(--ink-900);
+    border: 1px solid var(--line);
+    border-radius: var(--r-control);
+    color: var(--text);
+    cursor: pointer;
+    transition: background-color var(--fast) var(--ease), border-color var(--fast) var(--ease);
+}
+
+.demo-card:hover {
+    background: var(--surface-hover);
+    border-color: var(--line-strong);
+}
+
+.demo-card__role {
+    font-size: 0.8125rem;
+    font-weight: 600;
+}
+
+.demo-card__name {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+}
+
+.demo-card__email {
+    font-family: $font-family-monospace;
+    font-size: 0.6875rem;
+    color: var(--text-faint);
+    overflow-wrap: anywhere;
+}
+
+.auth-divider {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 0 0 1rem;
+    font-size: 0.75rem;
+    color: var(--text-faint);
+}
+
+.auth-divider::before,
+.auth-divider::after {
+    content: '';
+    flex: 1 1 auto;
+    height: 1px;
+    background: var(--line);
+}
+
+/* --------------------------------------------------------------------------
+   Attribution
+   -------------------------------------------------------------------------- */
+
+.attribution {
+    margin-top: 3rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--line);
+    font-size: 0.75rem;
+    line-height: 1.6;
+    color: var(--text-faint);
+    max-width: 62ch;
+}
+
+.attribution a {
+    color: var(--text-dim);
+    text-decoration: none;
+}
+
+.attribution a:hover {
+    color: var(--text);
+}
