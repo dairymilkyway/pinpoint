@@ -147,11 +147,16 @@ final class Rbac
     ];
 
     /**
-     * What the Customer holds: seeing their own addresses, and asking for a
-     * change to them. Nothing that writes.
+     * What the Customer holds: seeing their own addresses, asking for a change
+     * to them, and exporting what they can see.
+     *
+     * Export is not a write - the export is built from the same scoped query the
+     * table is, so a Customer can only ever download their own rows. Nothing
+     * that writes.
      */
     public const CUSTOMER_PERMISSIONS = [
         self::VIEW_PERMISSION,
+        self::EXPORT_PERMISSION,
         self::REQUEST_PERMISSION,
     ];
 

@@ -28,6 +28,14 @@ class AuditLog extends Model
 
     public const REQUEST_REJECTED = 'request.rejected';
 
+    public const USER_ROLE_CHANGED = 'user.role_changed';
+
+    public const USER_DEACTIVATED = 'user.deactivated';
+
+    public const USER_REACTIVATED = 'user.reactivated';
+
+    public const RBAC_PERMISSIONS_CHANGED = 'rbac.permissions_changed';
+
     /** Human wording for each event, for the log screen. */
     public const EVENT_LABELS = [
         self::ADDRESS_CREATED => 'Address created',
@@ -36,6 +44,10 @@ class AuditLog extends Model
         self::REQUEST_RAISED => 'Request raised',
         self::REQUEST_APPROVED => 'Request approved',
         self::REQUEST_REJECTED => 'Request rejected',
+        self::USER_ROLE_CHANGED => 'Role changed',
+        self::USER_DEACTIVATED => 'Account deactivated',
+        self::USER_REACTIVATED => 'Account reactivated',
+        self::RBAC_PERMISSIONS_CHANGED => 'Permissions changed',
     ];
 
     protected $fillable = [
@@ -89,9 +101,14 @@ class AuditLog extends Model
         ]);
     }
 
+    /**
+     * Who acted, deactivated or not. A deactivated account should still be
+     * named in the log; only a hard-deleted actor, whose row is genuinely gone,
+     * falls back in the view to "Removed account".
+     */
     public function actor(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'actor_id');
+        return $this->belongsTo(User::class, 'actor_id')->withTrashed();
     }
 
     public function subject(): MorphTo

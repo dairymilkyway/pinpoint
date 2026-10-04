@@ -4,25 +4,22 @@
 @section('heading', 'Import addresses')
 
 @section('content')
-    <div class="panel" style="max-width: 60rem;">
+    <div class="panel">
         <div class="panel__head">
             <div>
                 <p class="eyebrow mb-1">Import</p>
-                <p class="mb-0 text-dim small">
-                    One address per row. The headings come from the template.
-                    Write the city by name - "Cebu City", "Vigan" - and the province,
-                    region, postal code and map coordinates follow from it, the same
-                    way they do on the create form. Leave the city blank and type the
-                    rest yourself to add one by hand. A name several places share takes
-                    the province after a comma: "San Isidro, Nueva Ecija".
-                    A few cities have no map coordinates in the bundled dataset - those
-                    rows still import, and the result will say so.
-                </p>
+                <h2 class="panel__question mb-0">
+                    {{ $proposing
+                        ? 'Hold every valid row for approval, and still see which ones failed.'
+                        : 'Land every row, or know exactly which ones failed.' }}
+                </h2>
             </div>
 
-            <a href="{{ route('addresses.import.template') }}" class="btn btn-outline-secondary btn-sm text-nowrap">
-                <i class="bi bi-download"></i> <span class="ms-1">Download template</span>
-            </a>
+            <div class="action-bar">
+                <a href="{{ route('addresses.import.template') }}" class="btn btn-outline-secondary text-nowrap">
+                    <i class="bi bi-download"></i> <span class="ms-1">Download template</span>
+                </a>
+            </div>
         </div>
 
         <div class="panel__body">
@@ -47,10 +44,6 @@
                                 <span class="text-dim">({{ $selectedAccount->email }})</span>
                             </p>
                             <input type="hidden" name="user_id" value="{{ $selectedAccount->id }}">
-                            <div class="form-hint">
-                                Every row lands on this account. To import for someone
-                                else, open their addresses from the users list first.
-                            </div>
                             @error('user_id') <div class="invalid-feedback d-block">{{ $message }}</div> @enderror
                         </div>
                     @else
@@ -66,8 +59,7 @@
                                 @endforeach
                             </select>
                             <div class="form-hint">
-                                Every row lands on this account, whichever name the sheet carries.
-                                The managing roles do not hold addresses of their own, so they are not listed.
+                                Every row lands on this account. A managing role holds none of its own, so it is not listed.
                             </div>
                             @error('user_id') <div class="invalid-feedback">{{ $message }}</div> @enderror
                         </div>
@@ -79,15 +71,19 @@
                     <input type="file" name="file" id="file" required accept=".xlsx,.xls,.csv"
                            class="form-control @error('file') is-invalid @enderror">
                     <div class="form-hint">
-                        xlsx, xls or csv, up to 2 MB. A row that fails is reported by its line number
-                        and the rest are still imported.
+                        One address per row; type the city by name and the rest follows.
+                        {{ $proposing
+                            ? 'A failed row is reported by its line number; the valid rows are submitted for approval rather than imported.'
+                            : 'A failed row is reported by its line number and the others still import.' }}
                     </div>
                     @error('file') <div class="invalid-feedback">{{ $message }}</div> @enderror
                 </div>
 
-                <div class="d-flex gap-2 pt-3 border-top" style="border-color: var(--line) !important;">
-                    <button type="submit" class="btn btn-primary px-4">Import</button>
+                <div class="action-bar pt-3 border-top" style="border-color: var(--line) !important;">
                     <a href="{{ route('addresses.index') }}" class="btn btn-outline-secondary">Cancel</a>
+                    <button type="submit" class="btn btn-primary px-4">
+                        {{ $proposing ? 'Submit for approval' : 'Import' }}
+                    </button>
                 </div>
             </form>
         </div>

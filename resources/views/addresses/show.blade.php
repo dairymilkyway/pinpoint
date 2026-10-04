@@ -26,30 +26,32 @@
                 </div>
             </div>
 
-            <a href="{{ route('addresses.index') }}" class="btn btn-outline-secondary btn-sm text-nowrap">
-                <i class="bi bi-arrow-left"></i> <span class="ms-1">All users</span>
-            </a>
+            <div class="action-bar">
+                <a href="{{ route('addresses.index') }}" class="btn btn-outline-secondary text-nowrap">
+                    <i class="bi bi-arrow-left"></i> <span class="ms-1">All users</span>
+                </a>
+            </div>
         </div>
     </div>
 
-    <div class="stat-grid">
+    {{-- The account's figures as a metric band, the same component the dashboard
+         uses. These describe the account rather than decide anything, so they sit
+         at the supporting weight below the table. --}}
+    <div class="metric-band mb-4" role="group" aria-label="Figures for {{ $owner->name }}">
         @foreach ($cards as $card)
-            <div class="stat">
-                <p class="stat__label">{{ $card['label'] }}</p>
-                <p class="stat__value mb-1">{{ number_format($card['value']) }}</p>
-                <p class="stat__hint mb-0">{{ $card['hint'] }}</p>
+            <div class="metric {{ $loop->first ? 'metric--lead' : '' }}">
+                <p class="metric__label">{{ $card['label'] }}</p>
+                <div class="metric__row">
+                    <span class="metric__value">{{ number_format($card['value']) }}</span>
+                    <span class="metric__unit">{{ $card['hint'] }}</span>
+                </div>
             </div>
         @endforeach
     </div>
 
     <div class="panel mb-4">
         <div class="panel__head">
-            <div>
-                <p class="eyebrow mb-1">By region</p>
-                <p class="mb-0 text-dim small">
-                    Addresses held by {{ $owner->name }}, ranked by how many sit in each region.
-                </p>
-            </div>
+            <p class="eyebrow mb-0">By region</p>
         </div>
 
         <div class="panel__body">
@@ -81,17 +83,25 @@
         <div class="col-lg-7">
             <div class="panel h-100">
                 <div class="panel__head">
-                    <div>
-                        <p class="eyebrow mb-1">Addresses</p>
-                        <p class="mb-0 text-dim small">
-                            Every address held by {{ $owner->name }}. Search, sort and export from here.
-                        </p>
-                    </div>
+                    <p class="eyebrow mb-0">Addresses</p>
                 </div>
 
-                <div class="panel__body panel__body--flush skeleton-host">
+                {{-- First run and a search that matched nothing are different
+                     screens. The copy travels on the host so the one table
+                     module can word both. --}}
+                <div class="panel__body panel__body--flush skeleton-host"
+                     data-table-empty="This account holds no addresses yet."
+                     data-table-zero="No addresses match that search. Clear the search to see them all.">
                     {{ $dataTable->table(['class' => 'table table-hover align-middle w-100']) }}
                     <div class="skeleton-overlay skeleton-overlay--table" aria-hidden="true"></div>
+                    {{-- Shown to sighted readers by a display change, which assistive
+                         tech does not reliably announce. The live region below is
+                         always rendered and takes the same words when a fetch fails. --}}
+                    <div class="table-state table-state--failed">
+                        <p class="mb-1">Could not load the addresses.</p>
+                        <p class="mb-0 text-dim small">Check your connection, then refresh the page to try again.</p>
+                    </div>
+                    <div class="visually-hidden" data-table-alert role="alert" aria-atomic="true"></div>
                 </div>
             </div>
         </div>
@@ -106,7 +116,7 @@
                         <p class="eyebrow mb-1">Pins</p>
                         {{-- On one line so the sentence renders contiguously, the
                              same reason the dashboard keeps it on one. --}}
-                        <p class="mb-0 text-dim small">Their addresses, pinned. {{ number_format($coverage['pinned']) }} of {{ number_format($coverage['total']) }} addresses have coordinates. Tiles by OpenStreetMap.</p>
+                        <p class="mb-0 text-dim small">{{ number_format($coverage['pinned']) }} of {{ number_format($coverage['total']) }} addresses have coordinates. Tiles by OpenStreetMap.</p>
                     </div>
                 </div>
 

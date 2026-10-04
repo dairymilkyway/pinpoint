@@ -8,17 +8,12 @@
 
     <div class="panel">
         <div class="panel__head">
-            <div>
-                <p class="eyebrow mb-1">Inbox</p>
-                <p class="mb-0 text-dim small">
-                    What happened on the requests you are part of - raised, approved or rejected.
-                </p>
-            </div>
+            <p class="eyebrow mb-0">Inbox</p>
 
             @if ($unread > 0)
-                <form method="POST" action="{{ route('notifications.readAll') }}">
+                <form method="POST" action="{{ route('notifications.readAll') }}" class="action-bar">
                     @csrf
-                    <button class="btn btn-sm btn-outline-secondary text-nowrap">
+                    <button class="btn btn-outline-secondary text-nowrap">
                         Mark all as read
                     </button>
                 </form>
@@ -27,7 +22,12 @@
 
         <div class="panel__body panel__body--flush">
             @if ($notifications->isEmpty())
-                <p class="text-dim small p-4 mb-0">Nothing yet.</p>
+                <div class="table-state">
+                    {{-- An empty tray, for the first-run case with nothing here yet. --}}
+                    <i class="bi bi-inbox d-block mb-2" aria-hidden="true"></i>
+                    <p class="mb-1">Nothing yet.</p>
+                    <p class="mb-0 small">Updates on the requests you are part of appear here.</p>
+                </div>
             @else
                 <div class="table-responsive">
                     <table class="table table-hover align-middle w-100">

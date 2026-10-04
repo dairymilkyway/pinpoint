@@ -53,6 +53,7 @@ async function drawMap(element) {
         } catch (error) {
             element.classList.remove('is-loading');
             element.classList.add('map--failed');
+            element.setAttribute('role', 'alert');
             element.textContent = 'Could not load the map.';
             return;
         }
@@ -93,15 +94,18 @@ async function drawMap(element) {
             + owner
             + approximate;
 
-        // Amber is the theme's accent, and the dashed hollow ring reads as
-        // provisional next to the solid red default marker.
+        // The ring colour is a fixed amber darker than the theme accent: map.js
+        // loads one light OSM tile layer in both themes, so a theme token would
+        // resolve to the accent in dark mode and sit at 2.17:1 on the tiles.
+        // #8a5a0e reads on tiles and the dashed hollow ring stays distinct from
+        // the solid red default marker.
         return point.approximate
             ? L.circleMarker([point.lat, point.lng], {
                 radius: 7,
-                color: '#e9a23b',
+                color: '#8a5a0e',
                 weight: 2,
                 dashArray: '3 3',
-                fillColor: '#e9a23b',
+                fillColor: '#8a5a0e',
                 fillOpacity: 0.15,
             }).bindPopup(popup)
             : L.marker([point.lat, point.lng]).bindPopup(popup);

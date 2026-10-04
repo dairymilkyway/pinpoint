@@ -1,22 +1,72 @@
 // Brand
-// A single warm accent, used sparingly. Bootstrap regenerates every
-// -primary component from this, so buttons, focus rings and links all
-// shift together instead of being patched one by one.
+// One warm accent. Bootstrap regenerates every -primary component from this, so
+// buttons, focus rings and links move together instead of being patched one by
+// one. The full amber set (accent, ink, text, wash) lives in app.scss.
 $primary: #e9a23b;
 
 // Typography
-// Self-hosted via @fontsource-variable (imported in resources/js/app.js).
-// No remote font CDN at runtime.
-$font-family-sans-serif: 'Space Grotesk Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
-$font-family-monospace: 'JetBrains Mono Variable', ui-monospace, 'Cascadia Mono', monospace;
-$font-size-base: 0.9375rem;
-$line-height-base: 1.6;
-$headings-font-weight: 600;
+// IBM Plex Sans for the interface, IBM Plex Mono for measurements, both
+// self-hosted via @fontsource (imported in resources/js/app.js). No remote font
+// CDN at runtime. Plex is drawn for tabular data and small-size legibility.
+$font-family-sans-serif: 'IBM Plex Sans Variable', system-ui, -apple-system, 'Segoe UI', sans-serif;
+$font-family-monospace: 'IBM Plex Mono', ui-monospace, 'Cascadia Mono', monospace;
 
-// Geometry
-// Crisp corners and no drop shadows. Depth comes from hairline borders
-// and surface steps, not from blur.
-$border-radius: 0.375rem;
-$border-radius-sm: 0.25rem;
-$border-radius-lg: 0.5rem;
+// Base 14px. The scale is 11 / 12 / 13 / 14 / 16 / 18 / 22 / 28 (design.md
+// section 4). Bootstrap's own components are pointed at the same steps so they
+// inherit the scale instead of deriving their own fractions.
+$font-size-base: 0.875rem;
+$line-height-base: 1.5;
+$headings-font-weight: 600;
+$headings-line-height: 1.2;
+$small-font-size: 0.75rem;
+
+$h1-font-size: 1.125rem;    // 18, page heading
+$h2-font-size: 1rem;        // 16, panel title
+$h3-font-size: 0.875rem;    // 14
+$h4-font-size: 0.875rem;    // 14
+$h5-font-size: 0.8125rem;   // 13
+$h6-font-size: 0.75rem;     // 12
+
+$font-size-sm: 0.75rem;     // 12
+$font-size-lg: 1rem;        // 16
+
+// Links are not the accent. design.md spends amber on the primary action and
+// the placed mark only; a link carries body text colour and relies on its
+// underline. Left unset, Bootstrap would paint every link amber and fail 3:1 on
+// the light theme.
+$link-color: #dfe4ea;
+$link-hover-color: #dfe4ea;
+$link-decoration: underline;
+$link-hover-decoration: underline;
+
+// Geometry. Four radius values, each with a job (design.md section 6): 3px
+// inline marks and the checkbox, 6px controls and panels, 10px overlays, pill
+// on badges and the segmented track only.
+$border-radius: 0.375rem;     // 6px
+$border-radius-sm: 0.1875rem; // 3px
+$border-radius-lg: 0.625rem;  // 10px
+$border-radius-pill: 999px;
 $enable-shadows: false;
+
+// Controls. 32px is the desktop floor (design.md section 5); touch viewports
+// get 44px from the pointer:coarse block in app.scss.
+$input-btn-font-size: 0.8125rem; // 13
+$input-btn-padding-y: 0.25rem;
+$input-btn-padding-x: 0.75rem;
+$input-btn-line-height: 1.5;
+$btn-font-weight: 500;
+
+// Table cells: padding 8px 12px, row height 36px (app.scss pins the row).
+$table-cell-padding-y: 0.5rem;
+$table-cell-padding-x: 0.75rem;
+
+// A solid amber surface takes dark ink, never white - white on amber is 1.69:1
+// (design.md section 3, measured 8.56:1 for the ink). This drives the checked
+// checkbox and switch glyphs, which are SVG glyphs baked at compile time.
+$component-active-bg: $primary;
+$component-active-color: #1a1204;
+$form-check-input-checked-color: #1a1204;
+$form-check-input-checked-bg-color: $primary;
+
+// Inline mark radius is 3px, not Bootstrap's 4px default.
+$form-check-input-border-radius: 0.1875rem;

@@ -4,6 +4,7 @@ namespace App\DataTables;
 
 use App\Models\Address;
 use App\Models\User;
+use App\Rbac;
 use Illuminate\Database\Eloquent\Builder as QueryBuilder;
 use Illuminate\Support\Facades\Gate;
 use Yajra\DataTables\EloquentDataTable;
@@ -41,15 +42,13 @@ class AddressDataTable extends DataTable
     }
 
     /**
-     * Whether the two columns that only speak to the owner are dropped.
+     * Whether the default marker is dropped from the label cell.
      *
      * A reader of the whole book is looking at somebody else's profile. The
      * default marker there is that owner's own business and moving it is theirs
-     * to do, not the reader's. And the pin state is the same fact the Pins panel
-     * beside the table already answers, so as a column it is a second copy of
-     * it. On a Customer's own book both stay.
+     * to do, not the reader's. On a Customer's own book it stays.
      */
-    private function hidesMapAndDefault(): bool
+    private function hidesDefaultMarker(): bool
     {
         return $this->scopedToOwner() && (bool) $this->request()->user()?->seesEveryAddress();
     }
@@ -57,48 +56,44 @@ class AddressDataTable extends DataTable
     public function dataTable(QueryBuilder $query): EloquentDataTable
     {
         // Which cells hold markup. Collected and set once at the end, because
-        // rawColumns() replaces the list rather than adding to it.
-        $raw = ['actions'];
+        // rawColumns() replaces the list rather than adding to it. label joins
+        // the list because the Default badge renders inline in that cell.
+        $raw = ['actions', 'label'];
 
         $table = (new EloquentDataTable($query))
             ->addColumn('actions', fn (Address $address) => view(
                 'addresses.partials.actions',
                 ['address' => $address],
             )->render())
+            // The Default badge rides inline with the name rather than in a column
+            // of its own. label is user input and this cell is now raw HTML, so it
+            // is escaped here - an unescaped label is an XSS hole. The leading
+            // space lives inside the badge branch so the export reads "Home
+            // Default" rather than "HomeDefault".
+            ->editColumn('label', fn (Address $address) => e($address->label)
+                .($address->is_default && ! $this->hidesDefaultMarker()
+                    ? ' <span class="badge badge-amber ms-2">Default</span>'
+                    : ''))
             ->setRowId('id');
-
-        // An addColumn value rides along in the row payload whether or not the
-        // column is declared, so hiding one has to skip building it at all
-        // rather than just leaving it out of getColumns().
-        if (! $this->hidesMapAndDefault()) {
-            $table
-                ->editColumn('is_default', fn (Address $address) => $address->is_default
-                    ? '<span class="badge text-bg-success">Default</span>'
-                    : '<span class="badge text-bg-light text-muted">No</span>')
-                // The pin carries its state in words as well as in an icon. The icon
-                // alone says nothing to a screen reader, and the export strips the
-                // markup, so an icon-only cell would leave the spreadsheet empty.
-                ->addColumn('map', fn (Address $address) => $address->hasCoordinates()
-                    ? '<span class="badge text-bg-success" title="Shown on the map"><i class="bi bi-geo-alt"></i><span class="visually-hidden">Pinned</span></span>'
-                    : '<span class="badge text-bg-light text-muted" title="The dataset has no coordinates for this city">No location</span>')
-                ->orderColumn('map', fn (QueryBuilder $query, string $order) => $query->orderByRaw(
-                    'latitude IS NULL '.($order === 'desc' ? 'desc' : 'asc'),
-                ));
-
-            $raw[] = 'is_default';
-            $raw[] = 'map';
-        }
 
         // The Owner column is dropped for the same reason, but by the scope
         // rather than the viewer: one owner's page would repeat a single name.
+        //
+        // A deactivated owner keeps their rows and their name, so every path the
+        // Owner column reaches a user through must see a trashed one. The value
+        // and the whereHas both follow the relation, which carries withTrashed;
+        // the closure states it anyway so the search does not silently depend on
+        // the relation keeping it. orderColumn builds its own User query and has
+        // no relation to inherit from, so it must say so itself - without that
+        // the trashed owner's name is NULL and their rows sort to the top.
         if (! $this->scopedToOwner()) {
             $table
                 ->addColumn('owner', fn (Address $address) => $address->user?->name ?? '-')
                 ->filterColumn('owner', function (QueryBuilder $query, string $keyword) {
-                    $query->whereHas('user', fn ($q) => $q->where('name', 'like', "%{$keyword}%"));
+                    $query->whereHas('user', fn ($q) => $q->withTrashed()->where('name', 'like', "%{$keyword}%"));
                 })
                 ->orderColumn('owner', fn (QueryBuilder $query, string $order) => $query->orderBy(
-                    User::select('name')->whereColumn('users.id', 'addresses.user_id'),
+                    User::withTrashed()->select('name')->whereColumn('users.id', 'addresses.user_id'),
                     $order,
                 ));
         }
@@ -139,6 +134,11 @@ class AddressDataTable extends DataTable
     /**
      * The table's toolbar. Each button is drawn only for a user who may use it,
      * so a role that can do none of it gets no row at all.
+     *
+     * A writer gets the write actions; a Customer, who cannot create but may
+     * ask, gets the proposal paths instead - a new-address request and the
+     * import page in its proposal mode. Both are the same capability for that
+     * role seen from the other side.
      */
     protected function getButtons(): array
     {
@@ -153,19 +153,35 @@ class AddressDataTable extends DataTable
             $buttons[] = $this->linkButton(
                 route('addresses.create', $this->owner ? ['user' => $this->owner->id] : []),
                 '<i class="bi bi-plus-lg"></i> New address',
-                'btn btn-sm btn-primary',
+                'btn btn-primary',
             );
 
             $buttons[] = $this->linkButton(
                 route('addresses.import.create', $this->owner ? ['user' => $this->owner->id] : []),
                 '<i class="bi bi-upload"></i> Import Excel',
-                'btn btn-sm btn-outline-secondary',
+                'btn btn-outline-secondary',
+            );
+        } elseif ($user?->can(Rbac::REQUEST_PERMISSION)) {
+            // A Customer writes nothing directly, so both actions lead to the
+            // proposal paths rather than to addresses.create or a writing
+            // import. Route names are spelled out because these are not the
+            // create routes and must not be confused with them.
+            $buttons[] = $this->linkButton(
+                route('requests.create', ['type' => 'create']),
+                '<i class="bi bi-plus-lg"></i> New address',
+                'btn btn-primary',
+            );
+
+            $buttons[] = $this->linkButton(
+                route('addresses.import.create'),
+                '<i class="bi bi-upload"></i> Import Excel',
+                'btn btn-outline-secondary',
             );
         }
 
         if ($user?->can('addresses.export')) {
             $buttons[] = Button::make('excel')
-                ->className('btn btn-sm btn-outline-success')
+                ->className('btn btn-outline-success')
                 ->text('<i class="bi bi-file-earmark-excel"></i> Export to Excel');
         }
 
@@ -207,28 +223,12 @@ class AddressDataTable extends DataTable
             ? []
             : [Column::make('owner')->title('Owner')];
 
-        // Dropped on the same page, and together, for the reasons
-        // hidesMapAndDefault() gives.
-        $personal = $this->hidesMapAndDefault()
-            ? []
-            : [
-                Column::computed('map')
-                    ->title('Map')
-                    ->orderable(true)
-                    // Kept out of the global search: the cell holds markup, and the
-                    // other columns are what a reader types a place name into.
-                    ->searchable(false)
-                    ->addClass('text-center'),
-                Column::make('is_default')->title('Default'),
-            ];
-
         return [
             ...$owner,
             Column::make('label'),
             Column::make('line1')->title('Address'),
             Column::make('city'),
             Column::make('country'),
-            ...$personal,
             Column::computed('actions')
                 ->title('Actions')
                 ->orderable(false)

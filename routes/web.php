@@ -27,7 +27,12 @@ Route::middleware('auth')->group(function () {
     Route::get('addresses', [AddressController::class, 'index'])->name('addresses.index');
     Route::get('addresses/create', [AddressController::class, 'create'])->name('addresses.create');
     Route::post('addresses', [AddressController::class, 'store'])->name('addresses.store');
-    Route::get('addresses/users/{user}', [AddressController::class, 'forUser'])->name('addresses.user');
+    // withTrashed, or a deactivated owner's profile 404s before the controller
+    // runs: implicit binding resolves through the SoftDeletes scope, and this
+    // page is the only route to the addresses the deactivation kept.
+    Route::get('addresses/users/{user}', [AddressController::class, 'forUser'])
+        ->withTrashed()
+        ->name('addresses.user');
 
     // Above the {address} routes so 'import' is read as the literal segment it
     // is rather than as an id.
@@ -63,6 +68,17 @@ Route::middleware('auth')->group(function () {
     Route::middleware('can:rbac.manage')->group(function () {
         Route::get('rbac', [RbacController::class, 'index'])->name('rbac.index');
         Route::post('rbac/permissions', [RbacController::class, 'updatePermissions'])->name('rbac.permissions');
-        Route::post('rbac/users/{user}/role', [RbacController::class, 'assignRole'])->name('rbac.users.role');
+        // withTrashed, or the role control the RBAC row keeps on a deactivated
+        // account 404s: implicit binding resolves through the SoftDeletes scope.
+        Route::post('rbac/users/{user}/role', [RbacController::class, 'assignRole'])
+            ->withTrashed()
+            ->name('rbac.users.role');
+        Route::post('rbac/users/{user}/deactivate', [RbacController::class, 'deactivate'])->name('rbac.users.deactivate');
+        // withTrashed, or the account this route exists to restore 404s before
+        // the controller runs: implicit binding resolves through the SoftDeletes
+        // scope and a trashed user is not found.
+        Route::post('rbac/users/{user}/reactivate', [RbacController::class, 'reactivate'])
+            ->withTrashed()
+            ->name('rbac.users.reactivate');
     });
 });

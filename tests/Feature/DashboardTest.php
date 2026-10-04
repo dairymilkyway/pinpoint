@@ -102,7 +102,6 @@ class DashboardTest extends TestCase
 
         // Four addresses, one owner, two distinct cities, two distinct regions.
         $response->assertSee('4');
-        $response->assertSee('3 of 4 addresses have coordinates.');
     }
 
     public function test_an_account_with_no_role_gets_a_dashboard_not_a_403(): void
@@ -128,7 +127,6 @@ class DashboardTest extends TestCase
 
         // Two of the seven, not all seven.
         $response->assertSee('on file under your name');
-        $response->assertSee('2 of 2 addresses have coordinates.');
     }
 
     public function test_both_directory_reading_roles_get_the_owners_card(): void
@@ -224,32 +222,27 @@ class DashboardTest extends TestCase
             ->get(route('home'))
             ->assertOk()
             ->assertSee('Your locations')
-            ->assertSee(route('home.map'))
-            ->assertSee('0 of 1 addresses have coordinates.');
+            ->assertSee(route('home.map'));
     }
 
-    public function test_the_coverage_figure_counts_measurements_not_stand_ins(): void
+    /**
+     * The panel asked one question - how much of the book is actually placed -
+     * and answered it with a single figure over a strip of supporting stats.
+     * That is the shape the research names as the default AI dashboard, so it
+     * was removed rather than restyled. Nothing on the dashboard reports the
+     * figure now; the fact itself stays in the directory's Map column, the
+     * import result and each pin's own popup.
+     */
+    public function test_the_placement_panel_is_gone_from_the_dashboard(): void
     {
-        $customer = $this->userWithRole('Customer');
+        $owner = $this->userWithRole('Superadmin');
+        Address::factory()->count(2)->for($owner)->create();
 
-        // A city the dataset cannot place. The map draws it from the region
-        // centre, but nothing was ever measured for this row.
-        Address::factory()->for($customer)->create([
-            'city' => 'City of Taguig',
-            'city_code' => '1381500000',
-            'postal_code' => '1630',
-            'latitude' => null,
-            'longitude' => null,
-        ]);
-
-        // Both halves of the split, asserted together: the figure above the map
-        // stays about the data, and the caption is what explains the pin the
-        // reader is about to see.
-        $this->actingAs($customer)
+        $this->actingAs($owner)
             ->get(route('home'))
             ->assertOk()
-            ->assertSee('0 of 1 addresses have coordinates.')
-            ->assertSee('The rest are drawn at the centre of their province or region where one is known');
+            ->assertDontSee('How much of the book')
+            ->assertDontSee('addresses have coordinates');
     }
 
     public function test_an_empty_directory_renders_without_errors(): void
@@ -257,8 +250,7 @@ class DashboardTest extends TestCase
         $this->actingAs($this->userWithRole('Customer'))
             ->get(route('home'))
             ->assertOk()
-            ->assertSee('You have not asked for a change yet.')
-            ->assertSee('0 of 0 addresses have coordinates.');
+            ->assertSee('You have not asked for a change yet.');
     }
 
     public function test_the_superadmin_gets_the_chart_ranked_and_named_by_region(): void
@@ -278,9 +270,11 @@ class DashboardTest extends TestCase
         $response->assertSee('data-region-chart', false);
         $response->assertSee('By region');
 
-        // Ordered, so the ranking is asserted and not just the totals.
+        // Ordered, so the ranking is asserted and not just the totals. The
+        // capital region is labelled the way it is written in an address, not
+        // the way PSGC classifies it - see PhLocations::REGION_LABELS.
         $response->assertSeeInOrder([
-            'National Capital Region: 2 addresses',
+            'Metro Manila: 2 addresses',
             'Central Visayas: 1 address',
         ]);
 
@@ -307,7 +301,7 @@ class DashboardTest extends TestCase
             $response->assertSee('data-region-chart', false);
             $response->assertSeeInOrder([
                 'Central Visayas: 3 addresses',
-                'National Capital Region: 1 address',
+                'Metro Manila: 1 address',
             ]);
         }
     }

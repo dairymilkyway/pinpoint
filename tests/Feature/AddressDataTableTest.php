@@ -13,16 +13,13 @@ class AddressDataTableTest extends TestCase
     use RefreshDatabase;
 
     /** The directory table, which still carries the Owner column. */
-    private const COLUMNS = ['owner', 'label', 'line1', 'city', 'country', 'map', 'is_default', 'actions'];
+    private const COLUMNS = ['owner', 'label', 'line1', 'city', 'country', 'actions'];
 
     /**
      * One owner's page. The Owner column would repeat a single name, and a
-     * reader loses Map and Default there too - see hidesMapAndDefault().
+     * reader loses the default marker there too - see hidesDefaultMarker().
      */
     private const SCOPED_COLUMNS = ['label', 'line1', 'city', 'country', 'actions'];
-
-    /** Where Map sits in the directory column list, for an ordering request. */
-    private const MAP_COLUMN = 5;
 
     protected function setUp(): void
     {
@@ -170,82 +167,66 @@ class AddressDataTableTest extends TestCase
     }
 
     /**
-     * A reader opening somebody else's profile gets neither column. The default
-     * marker is that owner's own business, and the Pins panel beside the table
-     * already answers what the pin state answers, so the column is a second copy
-     * of it. The flat table a Customer reads keeps both.
+     * The Map column is gone from the table and from the payload. An addColumn
+     * value rides along in the row whether or not a column is declared for it,
+     * so absence is asserted on the payload rather than on the header - a header
+     * assertion would pass while the key was still being shipped to the browser.
      */
-    public function test_an_owners_page_drops_the_map_and_default_columns(): void
+    public function test_the_map_column_is_gone_from_the_payload(): void
+    {
+        $customer = $this->userWithRole('Customer');
+        Address::factory()->for($customer)->create();
+
+        $this->assertArrayNotHasKey('map', $this->ajax($customer)->json('data.0'));
+    }
+
+    /**
+     * The default marker has no column of its own now - it rides in the label
+     * cell. A reader opening somebody else's profile still does not see it: the
+     * marker is that owner's own business and moving it is theirs to do. The flat
+     * table a Customer reads keeps it.
+     */
+    public function test_an_owners_page_hides_the_default_marker(): void
     {
         $reader = $this->userWithRole('Superadmin');
-        Address::factory()->for($reader)->create(['is_default' => true]);
+        Address::factory()->for($reader)->create(['label' => 'Mine', 'is_default' => true]);
 
         $scoped = $this->ajax($reader, $reader)->json('data.0');
-
-        // Absent from the payload, not merely undeclared: an addColumn value
-        // rides along in the row whether or not a column is declared for it.
-        $this->assertArrayNotHasKey('map', $scoped);
+        $this->assertStringNotContainsString('Default', $scoped['label']);
 
         $customer = $this->userWithRole('Customer');
-        Address::factory()->for($customer)->create(['is_default' => true]);
+        Address::factory()->for($customer)->create(['label' => 'Theirs', 'is_default' => true]);
 
         $unscoped = $this->ajax($customer)->json('data.0');
-        $this->assertArrayHasKey('map', $unscoped);
+        $this->assertStringContainsString('Default', $unscoped['label']);
+    }
 
-        // is_default is a real column rather than an added one, so it stays in
-        // the payload either way - only the column that draws it is gone.
-        $this->assertArrayHasKey('is_default', $scoped);
+    /** A row that is not the default carries no marker and no filler text. */
+    public function test_a_row_that_is_not_the_default_renders_no_marker(): void
+    {
+        $customer = $this->userWithRole('Customer');
+        Address::factory()->for($customer)->create(['label' => 'Plain', 'is_default' => false]);
+
+        $this->assertSame('Plain', $this->fetchRow($customer)['label']);
     }
 
     /**
-     * The factory only ever builds cities GeoNames could place, so the pinned
-     * row is the default and the unpinned one is stated outright. Both states
-     * have to be legible, because the reader's question is "why is my pin
-     * missing" and the answer is a property of the row.
+     * The label cell is raw HTML now, because the Default badge renders inside
+     * it. The label is user input, so it has to be escaped by hand -
+     * rawColumns() turns off the escaping Blade would otherwise have given it.
      */
-    public function test_the_map_column_says_which_rows_have_coordinates(): void
+    public function test_a_label_containing_markup_is_escaped_not_rendered(): void
     {
         $customer = $this->userWithRole('Customer');
-        Address::factory()->for($customer)->create(['label' => 'Pinned']);
         Address::factory()->for($customer)->create([
-            'label' => 'Unpinned',
-            'latitude' => null,
-            'longitude' => null,
+            'label' => '<script>alert(1)</script>',
+            'is_default' => true,
         ]);
 
-        $response = $this->ajax($customer);
-        $response->assertOk();
+        $row = $this->fetchRow($customer);
 
-        $rows = collect($response->json('data'))->keyBy('label');
-
-        $this->assertStringContainsString('bi-geo-alt', $rows['Pinned']['map']);
-        $this->assertStringNotContainsString('No location', $rows['Pinned']['map']);
-        $this->assertStringContainsString('No location', $rows['Unpinned']['map']);
-    }
-
-    /**
-     * Sorting is what turns the column into something a reader can act on: it
-     * gathers the rows that will not be drawn, so they can be found without
-     * scrolling the whole book.
-     */
-    public function test_the_map_column_sorts_the_unpinned_rows_together(): void
-    {
-        $customer = $this->userWithRole('Customer');
-        Address::factory()->for($customer)->create(['label' => 'Pinned']);
-        Address::factory()->for($customer)->create([
-            'label' => 'Unpinned',
-            'latitude' => null,
-            'longitude' => null,
-        ]);
-
-        $response = $this->ajax($customer, null, [
-            'order' => [['column' => self::MAP_COLUMN, 'dir' => 'desc']],
-        ]);
-
-        $response->assertOk();
-
-        // Descending puts the rows with no latitude on top.
-        $this->assertSame('Unpinned', $response->json('data.0.label'));
+        $this->assertStringNotContainsString('<script>', $row['label']);
+        $this->assertStringContainsString('&lt;script&gt;', $row['label']);
     }
 
     public function test_pagination_limits_the_page_size(): void
@@ -260,6 +241,12 @@ class AddressDataTableTest extends TestCase
         $this->assertSame(7, $response->json('recordsTotal'));
     }
 
+    /**
+     * The Owner column only reaches a viewer on an unscoped table, which for a
+     * reader is the users list rather than this one, so the two deactivation
+     * paths that carry an owner's name are asserted in UserDeactivationTest
+     * where they are actually reachable.
+     */
     private function userWithRole(string $role): User
     {
         return User::factory()->create()->assignRole($role);

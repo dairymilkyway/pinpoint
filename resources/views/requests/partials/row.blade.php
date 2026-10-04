@@ -3,15 +3,21 @@
     // because a proposal carries twelve fields and a table cell that lists them
     // all turns the queue into a wall nobody scans.
     $isAddition = $change->isAddition();
+    $isImport = $change->type === App\Models\AddressRequest::TYPE_IMPORT;
+    $count = $change->rowCount();
 
     $fields = collect($change->payload ?? [])->when(
         ! $isAddition,
         fn ($all) => $all->filter(fn ($value, $key) => ($change->before[$key] ?? null) != $value),
     );
 
-    $summary = $isAddition
-        ? 'A new address'
-        : $fields->keys()->map(fn (string $field) => Str::headline($field))->implode(', ');
+    // An import is an addition, but "A new address" reads wrong for a whole
+    // file, so it leads with how many rows it carries instead.
+    $summary = $isImport
+        ? $count.' '.Str::plural('address', $count)
+        : ($isAddition
+            ? 'A new address'
+            : $fields->keys()->map(fn (string $field) => Str::headline($field))->implode(', '));
 @endphp
 
 <tr>
@@ -23,6 +29,10 @@
 
         @if ($summary !== '')
             <div class="text-dim small mt-1">{{ $summary }}</div>
+        @endif
+
+        @if (filled($change->note))
+            <div class="text-dim small mt-1">{{ $change->note }}</div>
         @endif
     </td>
 

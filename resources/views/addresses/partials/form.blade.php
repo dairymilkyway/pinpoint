@@ -172,8 +172,8 @@
         </div>
     @endif
 
-    <div class="d-flex gap-2 pt-3 border-top" style="border-color: var(--line) !important;">
-        <button type="submit" class="btn btn-primary px-4">{{ $submitLabel }}</button>
+    <div class="action-bar pt-3 border-top" style="border-color: var(--line) !important;">
         <a href="{{ $cancelRoute ?? route('addresses.index') }}" class="btn btn-outline-secondary">Cancel</a>
+        <button type="submit" class="btn btn-primary px-4">{{ $submitLabel }}</button>
     </div>
 </form>

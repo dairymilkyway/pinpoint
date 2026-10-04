@@ -33,7 +33,6 @@ class DashboardController extends Controller
         return view('dashboard.index', [
             'mayReadDirectory' => $mayReadDirectory,
             'cards' => $mayReadDirectory ? $this->cards($user) : [],
-            'coverage' => $mayReadDirectory ? $this->coverage($user) : null,
             'myRequests' => $mayReadDirectory ? $this->myRequests($user) : new Collection,
             'waitingOnADecision' => $mayReadDirectory ? $this->waitingOnADecision($user) : 0,
             'chart' => $mayReadDirectory ? $this->regions($user) : null,
@@ -102,18 +101,6 @@ class DashboardController extends Controller
         ];
 
         return $cards;
-    }
-
-    /**
-     * How much of what the user can see can be pinned. Counted in SQL rather
-     * than by loading every row, since this is the only thing the page needs
-     * from them.
-     *
-     * @return array{pinned: int, total: int, percent: int}
-     */
-    private function coverage(User $user): array
-    {
-        return AddressStats::coverage(Address::query()->visibleTo($user));
     }
 
     /**

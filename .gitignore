@@ -23,4 +23,10 @@ Homestead.json
 Homestead.yaml
 Thumbs.db
 /tests/specs
+/tests/screenshots
+/tests/reviews
 /CLAUDE.md
+/AGENTS.md
+/council.config.json
+/design.md
+/directions.html

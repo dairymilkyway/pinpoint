@@ -1,11 +1,73 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" data-bs-theme="dark">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" data-theme="dark" data-bs-theme="dark">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <title>@yield('title', 'Address Book') &middot; {{ config('app.name', 'Address Book') }}</title>
+
+    {{-- The stored theme choice lives in localStorage, so the server cannot
+         render it. This runs before the stylesheet and the bundle below, so
+         <html> carries the resolved theme before first paint and there is no
+         flash of the wrong one. It sets BOTH data-theme (our tokens) and
+         data-bs-theme (Bootstrap's own dark rules) as one state: flipping only
+         one leaves .form-select, .form-switch and .navbar-toggler-icon half
+         themed. Order is stored choice, then prefers-color-scheme, then dark.
+
+         The toggle handler rides along here rather than in the bundle: it is
+         the one control that must keep working if the bundle fails to load. --}}
+    <script>
+        (function () {
+            var root = document.documentElement;
+            var KEY = 'theme';
+
+            function read() {
+                try {
+                    return window.localStorage.getItem(KEY);
+                } catch (error) {
+                    return null;
+                }
+            }
+
+            function write(value) {
+                try {
+                    window.localStorage.setItem(KEY, value);
+                } catch (error) {
+                    // Storage can be blocked or throw in private mode. The
+                    // choice still applies for this page; it is just not
+                    // remembered. Never let it stop the page rendering.
+                }
+            }
+
+            function apply(theme) {
+                root.setAttribute('data-theme', theme);
+                root.setAttribute('data-bs-theme', theme);
+            }
+
+            var stored = read();
+            var theme = stored === 'light' || stored === 'dark'
+                ? stored
+                : (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+
+            apply(theme);
+
+            // The icon and the visible name both follow [data-theme] from CSS,
+            // so the control is already correct at first paint. The handler
+            // only flips the state and remembers it.
+            document.addEventListener('click', function (event) {
+                var button = event.target.closest && event.target.closest('[data-theme-toggle]');
+
+                if (!button) {
+                    return;
+                }
+
+                var next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+                apply(next);
+                write(next);
+            });
+        })();
+    </script>
 
     @vite(['resources/sass/app.scss', 'resources/js/app.js'])
 </head>
@@ -89,6 +151,22 @@
                             {{ $unread }}
                         </span>
                     </a>
+
+                    {{-- Theme is one choice, not two. The icon is the theme the
+                         click leads to; the name says the action in words, so
+                         the control never depends on the glyph. Both follow the
+                         resolved [data-theme] in CSS, so the control is correct
+                         at first paint rather than corrected once the bundle
+                         loads. The inactive name is display:none, so assistive
+                         tech announces only the action on offer. --}}
+                    <button type="button"
+                            class="btn btn-sm btn-outline-secondary theme-toggle"
+                            data-theme-toggle>
+                        <i class="bi bi-sun theme-toggle__icon theme-toggle__icon--dark" aria-hidden="true"></i>
+                        <i class="bi bi-moon-stars theme-toggle__icon theme-toggle__icon--light" aria-hidden="true"></i>
+                        <span class="visually-hidden theme-toggle__label theme-toggle__label--dark">Switch to light theme</span>
+                        <span class="visually-hidden theme-toggle__label theme-toggle__label--light">Switch to dark theme</span>
+                    </button>
 
                     <span class="app-avatar">{{ Str::of(auth()->user()->name)->substr(0, 2)->upper() }}</span>
                     <span class="d-none d-sm-flex flex-column lh-1">

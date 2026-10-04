@@ -11,29 +11,43 @@
         <div class="panel__head">
             <div>
                 <p class="eyebrow mb-1">History</p>
-                <p class="mb-0 text-dim small">
-                    Every write to the directory and every decision on a request, newest first.
-                </p>
+                <h2 class="panel__question mb-0">Reconstruct one record's history.</h2>
             </div>
 
-            <form method="GET" action="{{ route('audit.index') }}" class="d-flex gap-2 align-items-center">
+            <form method="GET" action="{{ route('audit.index') }}" class="action-bar">
                 <label class="visually-hidden" for="audit-event">Filter by event</label>
-                <select name="event" id="audit-event" class="form-select form-select-sm" style="width: 14rem;">
+                <select name="event" id="audit-event" class="form-select" style="width: 14rem;">
                     <option value="">All events</option>
                     @foreach ($events as $value => $label)
                         <option value="{{ $value }}" @selected($event === $value)>{{ $label }}</option>
                     @endforeach
                 </select>
-                <button class="btn btn-sm btn-outline-secondary text-nowrap">Filter</button>
+                <button class="btn btn-outline-secondary text-nowrap">Filter</button>
                 @if ($event !== '')
-                    <a href="{{ route('audit.index') }}" class="btn btn-sm btn-ghost text-nowrap">Clear</a>
+                    <a href="{{ route('audit.index') }}" class="btn btn-ghost text-nowrap">Clear</a>
                 @endif
             </form>
         </div>
 
         <div class="panel__body panel__body--flush">
             @if ($logs->isEmpty())
-                <p class="text-dim small p-4 mb-0">Nothing recorded for that filter.</p>
+                {{-- No history at all is a first run; a filter that matched nothing
+                     is the reader's own doing and reads differently. --}}
+                @if ($event !== '')
+                    <div class="table-state">
+                        {{-- A magnifier, because a filter removed these rows rather than there being none. --}}
+                        <i class="bi bi-search d-block mb-2" aria-hidden="true"></i>
+                        <p class="mb-1">Nothing recorded for that filter.</p>
+                        <p class="mb-0 small">Clear the filter to see the whole history.</p>
+                    </div>
+                @else
+                    <div class="table-state">
+                        {{-- An empty tray, for a log that has never recorded anything. --}}
+                        <i class="bi bi-inbox d-block mb-2" aria-hidden="true"></i>
+                        <p class="mb-1">No history yet.</p>
+                        <p class="mb-0 small">Every write to the directory and every decision on a request is recorded here as it happens.</p>
+                    </div>
+                @endif
             @else
                 <div class="table-responsive">
                     <table class="table table-hover align-middle w-100">

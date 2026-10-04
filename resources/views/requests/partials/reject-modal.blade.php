@@ -51,13 +51,13 @@
                               placeholder="{{ $isAddition ? 'Why the address is not being added' : 'Why the change is being refused' }}"></textarea>
                 </div>
 
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-sm btn-outline-secondary"
+                <div class="modal-footer action-bar">
+                    <button type="button" class="btn btn-outline-secondary"
                             data-modal-swap="review-{{ $change->id }}"
                             data-modal-swap-from="reject-{{ $change->id }}">
                         Keep reviewing
                     </button>
-                    <button class="btn btn-sm btn-danger">Reject this request</button>
+                    <button class="btn btn-danger">Reject this request</button>
                 </div>
             </form>
         </div>
