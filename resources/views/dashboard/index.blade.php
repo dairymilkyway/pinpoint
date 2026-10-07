@@ -147,7 +147,7 @@
                     @endforelse
                 </div>
             </div>
-        @else
+        @elseif (auth()->user()->can('viewAny', \App\Models\AddressRequest::class))
             <div class="panel mb-4">
                 <div class="panel__head">
                     <p class="eyebrow mb-0">Requests</p>

@@ -18,7 +18,7 @@ class RbacController extends Controller
     {
         return view('rbac.index', [
             'roles' => Role::with('permissions')->orderBy('name')->get(),
-            'permissions' => Permission::orderBy('name')->get(),
+            'modules' => $this->modules(),
             // withTrashed so a deactivated account stays in the table, dimmed,
             // with a Reactivate button. Without it the row is filtered out before
             // the view renders and the account cannot be brought back at all.
@@ -26,6 +26,35 @@ class RbacController extends Controller
             'superadminRole' => Rbac::SUPERADMIN_ROLE,
             'managePermission' => Rbac::MANAGE_PERMISSION,
         ]);
+    }
+
+    /**
+     * Permission names grouped for the matrix. A permission in the database but
+     * not in Rbac::MODULES still renders, under Other, so it can be revoked.
+     *
+     * @return array<string, list<string>>
+     */
+    private function modules(): array
+    {
+        $existing = Permission::pluck('name')->all();
+        $modules = [];
+
+        foreach (Rbac::MODULES as $module => $names) {
+            $present = array_values(array_intersect($names, $existing));
+
+            if ($present !== []) {
+                $modules[$module] = $present;
+            }
+        }
+
+        $other = array_values(array_diff($existing, array_merge(...array_values(Rbac::MODULES))));
+        sort($other);
+
+        if ($other !== []) {
+            $modules['Other'] = $other;
+        }
+
+        return $modules;
     }
 
     public function updatePermissions(Request $request): RedirectResponse

@@ -33,6 +33,14 @@ final class Rbac
     public const APPROVE_PERMISSION = 'addresses.approve';
 
     /**
+     * Seeing the whole requests queue without being able to decide it. A
+     * Customer reaches their own requests through REQUEST_PERMISSION and an
+     * approver through APPROVE_PERMISSION, so this is only needed for a role
+     * that should watch the queue read-only.
+     */
+    public const REQUESTS_VIEW_PERMISSION = 'requests.view';
+
+    /**
      * Reading the audit log. Deliberately separate from addresses.view: knowing
      * who changed what is not the same as being allowed to see the addresses.
      */
@@ -54,6 +62,7 @@ final class Rbac
         self::EDIT_PERMISSION,
         self::DELETE_PERMISSION,
         self::EXPORT_PERMISSION,
+        self::REQUESTS_VIEW_PERMISSION,
         self::REQUEST_PERMISSION,
         self::APPROVE_PERMISSION,
         self::AUDIT_PERMISSION,
@@ -61,13 +70,40 @@ final class Rbac
     ];
 
     /**
+     * The roles matrix, grouped by the screen each permission governs, in the
+     * order the matrix draws them. Grouped here rather than by machine-name
+     * prefix because addresses.request and addresses.approve belong to the
+     * Requests screen; renaming them would orphan the rows already granted in
+     * every database. RbacTest asserts every permission sits in exactly one
+     * module.
+     */
+    public const MODULES = [
+        'Addresses' => [
+            self::VIEW_PERMISSION,
+            self::CREATE_PERMISSION,
+            self::EDIT_PERMISSION,
+            self::DELETE_PERMISSION,
+            self::EXPORT_PERMISSION,
+        ],
+        'Requests' => [
+            self::REQUESTS_VIEW_PERMISSION,
+            self::REQUEST_PERMISSION,
+            self::APPROVE_PERMISSION,
+        ],
+        'Audit log' => [
+            self::AUDIT_PERMISSION,
+        ],
+        'Administration' => [
+            self::MANAGE_PERMISSION,
+        ],
+    ];
+
+    /**
      * What each permission is called where a person reads it rather than
      * matches it.
      *
-     * Every label leads with its verb on purpose. The matrix sorts by machine
-     * name, so leading with the verb is what makes the rendered column read
-     * alphabetically - "Approve requests" before "Create addresses" - rather
-     * than in an order the sort key hides. Keep that property when editing.
+     * Every label leads with its verb, so rows scan as actions. Order on the
+     * matrix comes from MODULES, not from sorting these.
      *
      * Keyed by the constants rather than written as a second list of strings,
      * for the same reason PERMISSIONS is: a literal that drifts is invisible.
@@ -79,6 +115,7 @@ final class Rbac
         self::EDIT_PERMISSION => 'Edit addresses',
         self::DELETE_PERMISSION => 'Delete addresses',
         self::EXPORT_PERMISSION => 'Export to Excel',
+        self::REQUESTS_VIEW_PERMISSION => 'View all requests',
         self::REQUEST_PERMISSION => 'Request a change',
         self::APPROVE_PERMISSION => 'Approve requests',
         self::AUDIT_PERMISSION => 'Read the audit log',
@@ -128,6 +165,7 @@ final class Rbac
         self::EDIT_PERMISSION,
         self::DELETE_PERMISSION,
         self::EXPORT_PERMISSION,
+        self::REQUESTS_VIEW_PERMISSION,
         self::APPROVE_PERMISSION,
         self::AUDIT_PERMISSION,
         self::MANAGE_PERMISSION,
@@ -142,6 +180,7 @@ final class Rbac
         self::CREATE_PERMISSION,
         self::EDIT_PERMISSION,
         self::EXPORT_PERMISSION,
+        self::REQUESTS_VIEW_PERMISSION,
         self::APPROVE_PERMISSION,
         self::AUDIT_PERMISSION,
     ];

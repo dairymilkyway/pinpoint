@@ -11,11 +11,16 @@ class AddressRequestPolicy
     /**
      * The queue. A reader sees all of it, a Customer sees their own list on the
      * same screen - so both roles hold this, and the scoping is done by
-     * AddressRequest::scopeVisibleTo() rather than by refusing entry.
+     * AddressRequest::scopeVisibleTo() rather than by refusing entry. Approve
+     * implies view: a decision the approver cannot reach is a dead permission.
      */
     public function viewAny(User $user): bool
     {
-        return $user->can(Rbac::APPROVE_PERMISSION) || $user->can(Rbac::REQUEST_PERMISSION);
+        return $user->canAny([
+            Rbac::REQUESTS_VIEW_PERMISSION,
+            Rbac::APPROVE_PERMISSION,
+            Rbac::REQUEST_PERMISSION,
+        ]);
     }
 
     /** Raising one. */

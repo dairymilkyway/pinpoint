@@ -8,9 +8,11 @@ use App\Models\User;
 use App\Notifications\AddressRequestDecided;
 use App\Notifications\AddressRequestRaised;
 use App\Notifications\AddressRequestSettled;
+use App\Rbac;
 use Database\Seeders\RolePermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class AddressRequestTest extends TestCase
@@ -28,6 +30,34 @@ class AddressRequestTest extends TestCase
     public function test_the_queue_requires_authentication(): void
     {
         $this->get(route('requests.index'))->assertRedirect(route('login'));
+    }
+
+    public function test_an_admin_without_any_request_permission_is_not_offered_the_queue(): void
+    {
+        $admin = User::factory()->create()->assignRole('Admin');
+        Role::findByName('Admin')->revokePermissionTo([Rbac::APPROVE_PERMISSION, Rbac::REQUESTS_VIEW_PERMISSION]);
+        $change = $this->raise($this->customer(), AddressRequest::TYPE_CREATE, null, ['label' => 'Home']);
+
+        $this->actingAs($admin)->get(route('home'))
+            ->assertOk()
+            ->assertDontSee(route('requests.index'), false);
+
+        $this->actingAs($admin)->get(route('requests.index'))->assertForbidden();
+        $this->actingAs($admin)->get(route('requests.show', $change))->assertForbidden();
+    }
+
+    public function test_view_without_approve_shows_the_queue_read_only(): void
+    {
+        $admin = User::factory()->create()->assignRole('Admin');
+        Role::findByName('Admin')->revokePermissionTo(Rbac::APPROVE_PERMISSION);
+        $change = $this->raise($this->customer(), AddressRequest::TYPE_CREATE, null, ['label' => 'Home']);
+
+        $this->actingAs($admin)->get(route('requests.index'))
+            ->assertOk()
+            ->assertSee(route('requests.index'), false)
+            ->assertDontSee(route('requests.approve', $change), false);
+
+        $this->actingAs($admin)->post(route('requests.approve', $change))->assertForbidden();
     }
 
     public function test_a_customer_cannot_reach_the_request_form_when_they_have_no_address_to_edit(): void

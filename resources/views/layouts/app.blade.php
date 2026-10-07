@@ -105,13 +105,15 @@
                         <span>Addresses</span>
                     </a>
                 </li>
-                <li>
-                    <a class="app-nav__link {{ request()->routeIs('requests.*') ? 'is-active' : '' }}"
-                       href="{{ route('requests.index') }}">
-                        <i class="bi bi-inbox"></i>
-                        <span>Requests</span>
-                    </a>
-                </li>
+                @can('viewAny', \App\Models\AddressRequest::class)
+                    <li>
+                        <a class="app-nav__link {{ request()->routeIs('requests.*') ? 'is-active' : '' }}"
+                           href="{{ route('requests.index') }}">
+                            <i class="bi bi-inbox"></i>
+                            <span>Requests</span>
+                        </a>
+                    </li>
+                @endcan
                 @if (auth()->user()?->hasRole(\App\Rbac::CUSTOMER_ROLE))
                     <li>
                         <a class="app-nav__link {{ request()->routeIs('account.*') ? 'is-active' : '' }}"

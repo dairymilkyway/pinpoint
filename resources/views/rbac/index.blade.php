@@ -26,7 +26,12 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach ($permissions as $permission)
+                        @foreach ($modules as $module => $permissionNames)
+                            <tr class="matrix__group">
+                                <th scope="colgroup" colspan="{{ $roles->count() + 1 }}">{{ $module }}</th>
+                            </tr>
+                        @foreach ($permissionNames as $permissionName)
+                            @php($permission = (object) ['name' => $permissionName])
                             <tr>
                                 <td>
                                     {{-- The label is what a reader decides on; the machine
@@ -64,6 +69,7 @@
                                     </td>
                                 @endforeach
                             </tr>
+                        @endforeach
                         @endforeach
                     </tbody>
                 </table>

@@ -1783,6 +1783,20 @@ textarea.form-control {
     background-color: var(--surface-hover);
 }
 
+.matrix tbody tr.matrix__group,
+.matrix tbody tr.matrix__group:hover {
+    background-color: var(--ink-950);
+}
+
+.matrix__group th {
+    padding-top: 1rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--amber-text);
+}
+
 /* The readable label, with the machine name as its own line beneath. The mono
    treatment belongs to the machine name, which is the thing a reader matches
    against a constant - not to the label, which is prose. */

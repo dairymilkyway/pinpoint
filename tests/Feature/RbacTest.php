@@ -191,24 +191,22 @@ class RbacTest extends TestCase
         $this->assertStringContainsString('aria-label="Create addresses for Superadmin"', $html);
     }
 
-    public function test_the_address_labels_read_alphabetically_in_the_order_the_matrix_draws_them(): void
+    public function test_every_permission_sits_in_exactly_one_module(): void
     {
-        // The matrix sorts by machine name, so the column only reads in order if
-        // every label leads with its verb. "Addresses: create" would render the
-        // same rows shuffled, which is the reason the labels are phrased the way
-        // they are. Checked per resource group: audit.view and rbac.manage are
-        // their own single-row groups and follow on, so the column as a whole is
-        // grouped by resource rather than globally alphabetical.
-        $labels = Permission::orderBy('name')->get()
-            ->filter(fn (Permission $permission): bool => str_starts_with($permission->name, 'addresses.'))
-            ->map(fn (Permission $permission): string => Rbac::label($permission->name))
-            ->values()
-            ->all();
+        $grouped = array_merge(...array_values(Rbac::MODULES));
 
-        $sorted = $labels;
-        sort($sorted);
+        $this->assertSame(count($grouped), count(array_unique($grouped)), 'A permission is listed in two modules.');
+        $this->assertEqualsCanonicalizing(Rbac::PERMISSIONS, $grouped);
+    }
 
-        $this->assertSame($sorted, $labels);
+    public function test_the_matrix_draws_permissions_grouped_by_module(): void
+    {
+        $html = $this->actingAs($this->userWithRole('Superadmin'))->get(route('rbac.index'))->assertOk()->getContent();
+
+        $this->assertMatchesRegularExpression(
+            '/>Addresses<.*addresses\.export.*>Requests<.*requests\.view.*addresses\.request.*addresses\.approve.*>Audit log<.*>Administration<.*rbac\.manage/s',
+            $html,
+        );
     }
 
     public function test_the_matrix_locks_rbac_manage_on_every_column(): void

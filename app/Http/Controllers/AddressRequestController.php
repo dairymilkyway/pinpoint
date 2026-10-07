@@ -91,6 +91,8 @@ class AddressRequestController extends Controller
     /** One request on its own page, scoped so a Customer reaches only their own. */
     public function show(Request $request, string $addressRequest): View
     {
+        $this->authorize('viewAny', AddressRequest::class);
+
         return view('requests.show', [
             'change' => AddressRequest::query()
                 ->visibleTo($request->user())
